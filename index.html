@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess Ladder</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column. Who-you-are and your options first, then the full ladder, then recent challenges, then organizer tools. */
+:root {
+  --bg: #eef1ee;
+  --surface: #ffffff;
+  --surface2: #e3e9e5;
+  --ink: #18221d;
+  --muted: #56665d;
+  --line: #cdd7d0;
+  --accent: #1e6a54;
+  --accent-ink: #ffffff;
+  --reach: #e2efe9;
+  --immune: #24539e;
+  --immune-bg: #e0e9f9;
+  --bye: #7a4f00;
+  --bye-bg: #fbeecb;
+  --warn: #a63a2a;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1612; --surface: #17211c; --surface2: #202d26; --ink: #e6eee9; --muted: #9aaba1;
+    --line: #2c3a32; --accent: #5cbd98; --accent-ink: #0a1510; --reach: #1b2e26;
+    --immune: #8db4f0; --immune-bg: #1b2a45; --bye: #e8c262; --bye-bg: #38300f; --warn: #ee9181;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1612; --surface: #17211c; --surface2: #202d26; --ink: #e6eee9; --muted: #9aaba1;
+  --line: #2c3a32; --accent: #5cbd98; --accent-ink: #0a1510; --reach: #1b2e26;
+  --immune: #8db4f0; --immune-bg: #1b2a45; --bye: #e8c262; --bye-bg: #38300f; --warn: #ee9181;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 56px;
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: 30px; line-height: 1.1; }
+h2 { font-size: 18px; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.masthead { display: flex; flex-direction: column; gap: 10px; }
+.board-strip {
+  height: 16px; border-radius: 3px; border: 1px solid var(--line);
+  background: repeating-conic-gradient(var(--surface2) 0 25%, var(--surface) 0 50%) 0 0 / 32px 32px;
+}
+.title-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.round-pill { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel > h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+select, input[type="number"], input[type="file"], textarea {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-width: 0; max-width: 100%;
+}
+select { font-weight: 500; }
+textarea { min-height: 96px; resize: vertical; width: 100%; }
+input[type="number"] { width: 90px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+button {
+  font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 6px; padding: 8px 13px;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+}
+button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+button.danger { background: transparent; color: var(--warn); border-color: var(--warn); }
+button.link { background: none; border: none; padding: 2px 0; color: var(--muted); font-weight: 500; font-size: 13px; text-decoration: underline; }
+button[disabled] { opacity: 0.45; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.me-head { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.bigrank { font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: 1; color: var(--accent); min-width: 2ch; }
+.me-name { font-family: var(--font-display); font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.chip { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface2); color: var(--muted); white-space: nowrap; }
+.chip.immune { background: var(--immune-bg); color: var(--immune); }
+.chip.bye { background: var(--bye-bg); color: var(--bye); }
+.chip.you { background: var(--accent); color: var(--accent-ink); }
+.actions { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.action { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; }
+.action .what { flex: 1 1 220px; min-width: 0; }
+.action .what b { display: block; }
+.confirm-note { background: var(--surface2); border-radius: 6px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.confirm-note span { flex: 1 1 200px; }
+
+.ladder { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.ladder li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); }
+.ladder li:first-child { border-top: none; }
+.ladder li.reach { background: var(--reach); }
+.ladder li.me { box-shadow: inset 4px 0 0 var(--accent); }
+.ladder .rk { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--muted); }
+.ladder .nm { min-width: 0; overflow-wrap: anywhere; }
+.ladder .nm .chips { margin-top: 3px; }
+.ladder .act { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
+details { font-size: 13px; color: var(--muted); }
+details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+.rules-list { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.ladder .why { font-size: 12px; color: var(--muted); }
+.delta { display: block; font-family: var(--font-body); font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--muted); }
+.delta.up { color: var(--accent); }
+.delta.down { color: var(--warn); }
+.delta.new { color: var(--immune); }
+.prefsel { font-size: 13px; padding: 6px 8px; }
+.acct { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13px; }
+.urlin { flex: 1 1 100%; font: inherit; font-size: 13px; padding: 6px 8px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.ladder .confirm-row { grid-column: 2 / -1; }
+.ladder button { padding: 6px 11px; font-size: 13px; }
+
+.feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.feed li { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: space-between; align-items: center; }
+.feed .vs { min-width: 0; overflow-wrap: anywhere; }
+.feed .meta { font-size: 12px; color: var(--muted); }
+
+.empty { text-align: left; display: flex; flex-direction: column; gap: 8px; }
+.preview { background: var(--surface2); border-radius: 6px; padding: 10px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+.warn-text { color: var(--warn); }
+.rules { font-size: 13px; color: var(--muted); }
+
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); max-width: min(92vw, 520px); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; font-size: 14px; z-index: 20; }
+#toast[hidden] { display: none; }
+#toast.err { background: var(--warn); color: var(--surface); }
+@media (prefers-reduced-motion: no-preference) { button { transition: opacity 0.15s; } }
+</style>
+
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- tiny DOM helper ---------- */
+  function h(tag, props) {
+    var e = document.createElement(tag);
+    props = props || {};
+    Object.keys(props).forEach(function (k) {
+      var v = props[k];
+      if (v == null || v === false) return;
+      if (k === "class") e.className = v;
+      else if (k === "text") e.textContent = v;
+      else if (k.indexOf("on") === 0) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v === true ? "" : v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var kids = [].concat(arguments[i]);
+      for (var j = 0; j < kids.length; j++) {
+        var c = kids[j];
+        if (c == null || c === false) continue;
+        e.append(c && c.nodeType ? c : document.createTextNode(String(c)));
+      }
+    }
+    return e;
+  }
+
+  /* ---------- state ---------- */
+  var CFG = window.CHESS_LADDER_CONFIG || {};
+  var SHEET = { id: "", range: "", label: "your Google Sheet" };
+  var db = null, auth = null, downloads = null, mcp = null, me = null;
+  var admins = [], isOwner = false, adminUnsub = null, adminDraft = "", sheetDraft = null;
+  var ladder = null, challenges = [], moves = [], pairingsDocs = [], proposal = null;
+  var openRounds = new Set(), importProgress = "", manual = { round: "", text: "" }, manualOpen = false;
+  var ready = { ladder: false };
+  var slow = false, dbMissing = false, loadError = null;
+  var isAdmin = false, canWrite = false;
+  var meId = null;
+  var confirmKey = null;
+  var busy = false;
+  var editing = false, dirty = false;
+  var pasteText = "";
+  var pendingImport = null, importError = "";
+  var settingsDraft = null;
+  var toastTimer = null;
+  var appEl = document.getElementById("app");
+
+  try { meId = localStorage.getItem("chess-ladder-me"); } catch (e) {}
+
+  /* ---------- derived values ---------- */
+  function players() { return (ladder && ladder.players) || []; }
+  function round() { return (ladder && ladder.round) || 1; }
+  function maxJump() { return ladder && ladder.maxJump != null ? ladder.maxJump : 5; }
+  function indexOf(id) { return players().findIndex(function (p) { return p.id === id; }); }
+
+  function derive() {
+    var importedAt = (ladder && ladder.importedAt) || 0;
+    var d = { revoked: new Set(), byeNow: new Map(), byeCount: new Map(), busy: new Set(), pending: [], done: [] };
+    moves.forEach(function (m) {
+      if (m.type === "revoke" && (m.at || 0) >= importedAt) d.revoked.add(m.playerId);
+      if (m.type === "bye") {
+        d.byeCount.set(m.playerId, (d.byeCount.get(m.playerId) || 0) + 1);
+        if (m.round === round()) d.byeNow.set(m.playerId, m.id);
+      }
+    });
+    challenges.forEach(function (c) {
+      if (c.status === "pending") { d.busy.add(c.challengerId); d.busy.add(c.targetId); d.pending.push(c); }
+      else d.done.push(c);
+    });
+    d.pending.sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
+    d.done.sort(function (a, b) { return (b.resolvedAt || b.at || 0) - (a.resolvedAt || a.at || 0); });
+    return d;
+  }
+  function isImmune(p, d) { return !!p.immune && !d.revoked.has(p.id); }
+
+  /* ladder at the start of the previous round, for rank change and "new" players */
+  function prevStart() {
+    var doc = pairingsDocs.find(function (x) { return x.round === round() - 1; });
+    return doc && doc.start && Object.keys(doc.start).length ? doc.start : null;
+  }
+  function isNewPlayer(id) { var s = prevStart(); return !!s && s[id] == null; }
+  function currentStart() { var o = {}; players().forEach(function (p, i) { o[p.id] = i + 1; }); return o; }
+
+  /* Returns null when `me` may challenge `target`, otherwise the reason in plain words. */
+  function whyNot(meP, target, d) {
+    var mi = indexOf(meP.id), ti = indexOf(target.id);
+    if (d.byeNow.has(meP.id)) return "You requested a bye this round.";
+    if (ti >= mi || (mi - ti > maxJump() && !isNewPlayer(meP.id))) return "Out of reach.";
+    if (playedInARow(meP.id, target.id)) return "Played last, can't repeat";
+    var dupe = d.pending.some(function (c) { return c.challengerId === meP.id && c.targetId === target.id; });
+    if (dupe) return "Already challenged";
+    return null;
+  }
+
+  /* ---------- feedback ---------- */
+  function toast(text, isErr) {
+    var t = document.getElementById("toast");
+    t.textContent = text;
+    t.className = isErr ? "err" : "";
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, isErr ? 7000 : 3500);
+  }
+  function errText(e) {
+    var code = e && e.code;
+    if (code === "permission-denied") return "That isn't allowed. Sign in with Google first, or ask an organizer.";
+    if (code === "unavailable" || code === "resource-exhausted") return "Too busy right now. Try again in a moment.";
+    return (e && e.message) || "Something went wrong. Try again.";
+  }
+  async function act(fn, okMsg) {
+    if (busy) return;
+    busy = true; render();
+    try { await fn(); if (okMsg) toast(okMsg); }
+    catch (e) { toast(errText(e), true); }
+    finally { busy = false; confirmKey = null; render(); }
+  }
+  function ask(key) { confirmKey = key; render(); }
+
+  /* ---------- actions ---------- */
+  function sendChallenge(targetId) {
+    act(async function () {
+      var d = derive();
+      var meP = players()[indexOf(meId)], t = players()[indexOf(targetId)];
+      if (!meP || !t) throw new Error("That player is no longer on the ladder.");
+      var why = whyNot(meP, t, d);
+      if (why) throw new Error(t.name + " can't be challenged right now. " + why);
+      await db.collection("challenges").add({
+        challengerId: meP.id, challengerName: meP.name, challengerRank: indexOf(meP.id) + 1,
+        targetId: t.id, targetName: t.name, targetRank: indexOf(t.id) + 1,
+        round: round(), uid: myUid(), status: "pending", at: Date.now()
+      });
+    }, "Challenge sent.");
+  }
+  function ordinal(n) { return n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : n + "th"; }
+  function prefList(challengerId, d) {
+    return d.pending.filter(function (c) { return c.challengerId === challengerId; })
+      .sort(function (a, b) { return (a.pref != null ? a.pref : 1e9) - (b.pref != null ? b.pref : 1e9) || (a.at || 0) - (b.at || 0); });
+  }
+  /* k = 0 removes the challenge; k >= 1 puts the target at that place in the player's ordered choices. */
+  function setPreference(targetId, k) {
+    act(async function () {
+      var d = derive();
+      var meP = players()[indexOf(meId)], t = players()[indexOf(targetId)];
+      if (!meP || !t) throw new Error("That player is no longer on the ladder.");
+      var mine = prefList(meId, d);
+      var cur = mine.find(function (c) { return c.targetId === targetId; });
+      if (!cur && k > 0) { var why = whyNot(meP, t, d); if (why) throw new Error(t.name + " can't be challenged right now. " + why); }
+      var order = mine.filter(function (c) { return c.targetId !== targetId; });
+      if (cur && k === 0) await db.doc("challenges/" + cur.id).delete();
+      if (k > 0) order.splice(Math.min(k - 1, order.length), 0, cur || { fresh: true, targetId: targetId });
+      for (var i = 0; i < order.length; i++) {
+        var item = order[i], want = i + 1;
+        if (item.fresh) {
+          await db.collection("challenges").add({
+            challengerId: meP.id, challengerName: meP.name, challengerRank: indexOf(meP.id) + 1,
+            targetId: t.id, targetName: t.name, targetRank: indexOf(t.id) + 1,
+            round: round(), uid: myUid(), status: "pending", pref: want, at: Date.now()
+          });
+        } else if (item.pref !== want) {
+          await db.doc("challenges/" + item.id).update({ pref: want });
+        }
+      }
+    }, k === 0 ? "Challenge removed." : "Saved as your " + ordinal(k) + " choice.");
+  }
+  function withdraw(c) {
+    act(function () { return db.doc("challenges/" + c.id).delete(); }, "Challenge withdrawn.");
+  }
+  function takeBye() {
+    act(async function () {
+      if (derive().byeNow.has(meId)) throw new Error("You already requested a bye this round.");
+      await db.collection("moves").add({ type: "bye", uid: myUid(), playerId: meId, round: round(), at: Date.now() });
+    }, "Bye requested. The organizer can see it.");
+  }
+  function cancelBye() {
+    act(async function () {
+      var id = derive().byeNow.get(meId);
+      if (id) await db.doc("moves/" + id).delete();
+    }, "Bye request cancelled.");
+  }
+  function revokeImmunity() {
+    act(function () { return db.collection("moves").add({ type: "revoke", uid: myUid(), playerId: meId, at: Date.now() }); }, "Immunity revoked.");
+  }
+
+  /* organizer */
+  /* pairings */
+  var IMMUNE_WEIGHT = 1.5; // an immune player's challenge ranks this many spots higher
+  function nameOfId(id) { var p = players()[indexOf(id)]; return p ? p.name : "Unknown player"; }
+  function pairKey(a, b) { return a < b ? a + "|" + b : b + "|" + a; }
+  function recentPairs() {
+    var r = round(), map = new Map();
+    pairingsDocs.forEach(function (doc) {
+      if (doc.round < r && doc.round >= r - 3) (doc.pairs || []).forEach(function (p) {
+        var k = pairKey(p.a, p.b);
+        if (!map.has(k) || doc.round > map.get(k)) map.set(k, doc.round);
+      });
+    });
+    return map;
+  }
+  /* Two players can't meet twice running: blocked while each one's most recent game was against the other. */
+  function lastOpponents() {
+    var m = {}, r = round();
+    pairingsDocs.filter(function (x) { return x.round < r; }).sort(function (a, b) { return a.round - b.round; })
+      .forEach(function (doc) { (doc.pairs || []).forEach(function (p) { m[p.a] = p.b; m[p.b] = p.a; }); });
+    return m;
+  }
+  function playedInARow(x, y) { var m = lastOpponents(); return m[x] === y && m[y] === x; }
+  function computePairings(d) {
+    var ps = players(), maxJ = maxJump(), hist = recentPairs();
+    var last = lastOpponents();
+    var blockedPair = function (x, y) { return last[x] === y && last[y] === x; };
+    var pos = {};
+    ps.forEach(function (p, i) { pos[p.id] = i; });
+    var immune = function (id) { return isImmune(ps[pos[id]], d); };
+    var onBye = function (id) { return d.byeNow.has(id); };
+    var taken = new Set(), pairs = [], unpaired = [];
+    var wants = new Map();
+    d.pending.slice().sort(function (a, b) {
+      return (a.pref != null ? a.pref : 1e9) - (b.pref != null ? b.pref : 1e9) || (a.at || 0) - (b.at || 0);
+    }).forEach(function (c) {
+      if (pos[c.challengerId] == null || pos[c.targetId] == null) return;
+      if (!wants.has(c.challengerId)) wants.set(c.challengerId, []);
+      var l = wants.get(c.challengerId);
+      if (l.indexOf(c.targetId) < 0) l.push(c.targetId);
+    });
+    var order = Array.from(wants.keys()).filter(function (id) { return !onBye(id); });
+    order.sort(function (a, b) {
+      var ea = pos[a] - (immune(a) ? IMMUNE_WEIGHT : 0), eb = pos[b] - (immune(b) ? IMMUNE_WEIGHT : 0);
+      return ea - eb || pos[a] - pos[b];
+    });
+    order.forEach(function (c, i) {
+      if (taken.has(c)) return;
+      var later = order.slice(i + 1).filter(function (x) { return !taken.has(x); });
+      var contest = function (t) { return later.filter(function (x) { return wants.get(x).indexOf(t) >= 0; }).length; };
+      var reach = function (t) { return pos[t] < pos[c] && (pos[c] - pos[t] <= maxJ || isNewPlayer(c)); };
+      var free = function (t) { return !taken.has(t) && !onBye(t) && !immune(t); };
+      var rep = function (t) { return hist.has(pairKey(c, t)); };
+      var why = [], ticked = [];
+      wants.get(c).forEach(function (t) {
+        var nm = ps[pos[t]].name;
+        if (!reach(t)) why.push(nm + " is out of reach");
+        else if (blockedPair(c, t)) why.push("your last game was against " + nm);
+        else if (immune(t)) why.push(nm + " is immune");
+        else if (onBye(t)) why.push(nm + " is on a bye");
+        else if (taken.has(t)) why.push(nm + " is already paired");
+        else ticked.push(t);
+      });
+      var pool = [];
+      for (var j = isNewPlayer(c) ? 0 : Math.max(0, pos[c] - maxJ); j < pos[c]; j++) {
+        var id = ps[j].id;
+        if (free(id) && ticked.indexOf(id) < 0 && !blockedPair(c, id)) pool.push(id);
+      }
+      var sortT = function (a, b) { return contest(a) - contest(b) || pos[a] - pos[b]; };
+      var sortF = function (a, b) { return contest(a) - contest(b) || pos[b] - pos[a]; };
+      var tNR = ticked.filter(function (t) { return !rep(t); }), tR = ticked.filter(rep);
+      var pNR = pool.filter(function (t) { return !rep(t); }), pR = pool.filter(rep);
+      var pick = null, kind = null;
+      if (tNR.length) { pick = tNR[0]; kind = "challenge"; }
+      else if (pNR.length) { pick = pNR.sort(sortF)[0]; kind = "reassigned"; }
+      else if (tR.length) { pick = tR[0]; kind = "challenge"; }
+      else if (pR.length) { pick = pR.sort(sortF)[0]; kind = "reassigned"; }
+      if (pick) {
+        taken.add(c); taken.add(pick);
+        pairs.push({ a: pick, b: c, aName: ps[pos[pick]].name, bName: ps[pos[c]].name, aRank: pos[pick] + 1, bRank: pos[c] + 1,
+          kind: kind, choice: kind === "challenge" ? wants.get(c).indexOf(pick) + 1 : null, repeatRound: hist.get(pairKey(c, pick)) || null });
+      } else {
+        if (!why.length || !pool.length) why.push("nobody free within " + maxJ + " spots above");
+        unpaired.push({ id: c, name: ps[pos[c]].name, rank: pos[c] + 1, reasons: why });
+      }
+    });
+    unpaired = unpaired.filter(function (u) { return !taken.has(u.id); });
+    pairs.sort(function (x, y) { return x.aRank - y.aRank; });
+    var asked = new Set(wants.keys());
+    var byes = ps.filter(function (p) { return onBye(p.id); }).map(function (p) { return p.id; });
+    var others = ps.filter(function (p) { return !taken.has(p.id) && !onBye(p.id) && !asked.has(p.id); }).map(function (p) { return p.id; });
+    return { pairs: pairs, unpaired: unpaired, byes: byes, others: others };
+  }
+  function savePairings() {
+    if (!proposal) return;
+    var pr = proposal, r = round();
+    act(async function () {
+      await db.doc("pairings/round-" + r).set({ round: r, savedAt: Date.now(), pairs: pr.pairs, byes: pr.byes, start: currentStart() });
+      proposal = null;
+    }, "Pairings saved for round " + r + ".");
+  }
+  /* past rounds */
+  function slugName(n) { return String(n).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "player"; }
+  function cellText(v) { return String(v == null ? "" : v).trim(); }
+  function jsonOf(res) {
+    var p = res && res.payload;
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch (e) { p = null; } }
+    if (!p) {
+      var t = ((res && res.content) || []).find(function (b) { return b.type === "text"; });
+      if (t) { try { p = JSON.parse(t.text); } catch (e) { p = null; } }
+    }
+    return p && p.content && typeof p.content === "object" && !Array.isArray(p.content) ? p.content : p;
+  }
+  function tabTitles(res) {
+    var root = jsonOf(res);
+    if (!root || !Array.isArray(root.sheets)) throw new Error("The sheet's tab list came back in a shape this page doesn't expect.");
+    return root.sheets.map(function (s) { return s.properties && s.properties.title; }).filter(Boolean);
+  }
+  function parseStart(values) {
+    var out = {};
+    for (var i = 2; i < values.length; i++) {
+      var r = values[i] || [], rk = cellText(r[9]), nm = cellText(r[10]);
+      if (/^\d+$/.test(rk) && nm) out[slugName(nm)] = Number(rk);
+    }
+    return out;
+  }
+  function parseRoundTab(values) {
+    var ranks = {};
+    for (var i = 2; i < values.length; i++) {
+      var r = values[i] || [], rk = cellText(r[9]), nm = cellText(r[10]);
+      if (/^\d+$/.test(rk) && nm) ranks[slugName(nm)] = Number(rk);
+    }
+    var pairs = [];
+    for (var j = 1; j < values.length; j++) {
+      var row = values[j] || [], w = cellText(row[1]), b = cellText(row[3]);
+      if (!w || !b) continue;
+      var e = cellText(row[4]), f = cellText(row[5]), g = cellText(row[6]);
+      var isUrl = function (x) { return /^https:\/\//i.test(x); };
+      var result = e, link = "";
+      if (e && f && !isUrl(f) && !/[-–]/.test(e)) { result = e + "-" + f; link = isUrl(g) ? g : ""; }
+      else link = isUrl(f) ? f : (isUrl(g) ? g : "");
+      pairs.push({ a: slugName(b), b: slugName(w), aName: b, bName: w, aRank: ranks[slugName(b)] || null, bRank: ranks[slugName(w)] || null,
+        board: cellText(row[0]), result: result, link: link, kind: "imported" });
+    }
+    return pairs;
+  }
+  function importRounds() {
+    act(async function () {
+      if (!mcp) throw new Error("Google Sheets can't be reached.");
+      var res = await mcp.callTool(SHEET.server, "get_spreadsheet", { spreadsheetId: SHEET.id, fields: ["sheets.properties.title"] }, { cache: false });
+      var seen = {}, tabs = [];
+      tabTitles(res).forEach(function (t) {
+        var m = /^Round\s+(\d+)\b/i.exec(t.trim());
+        if (m && !seen[m[1]]) { seen[m[1]] = 1; tabs.push({ n: Number(m[1]), title: t }); }
+      });
+      if (!tabs.length) throw new Error("No tabs named Round 1, Round 2 and so on were found.");
+      tabs.sort(function (x, y) { return x.n - y.n; });
+      var parsed = [];
+      for (var i = 0; i < tabs.length; i += 5) {
+        importProgress = "Reading rounds " + (i + 1) + " to " + Math.min(i + 5, tabs.length) + " of " + tabs.length + "...";
+        render();
+        var chunk = tabs.slice(i, i + 5);
+        var got = await Promise.all(chunk.map(function (t) {
+          return mcp.callTool(SHEET.server, "get_values", { spreadsheetId: SHEET.id, range: "'" + t.title.replace(/'/g, "''") + "'!A1:L80" }, { cache: false });
+        }));
+        got.forEach(function (r, k) {
+          var vals = [];
+          try { vals = valuesFrom(r); } catch (e) { vals = []; }
+          parsed.push({ n: chunk[k].n, title: chunk[k].title, pairs: parseRoundTab(vals), start: parseStart(vals) });
+        });
+      }
+      var last = parsed[parsed.length - 1];
+      var current = last.pairs.length ? last.n + 1 : last.n;
+      var saved = 0;
+      for (var k = 0; k < parsed.length; k++) {
+        var pr = parsed[k];
+        if (!pr.pairs.length || pr.n >= current) continue;
+        importProgress = "Saving round " + pr.n + "...";
+        render();
+        await db.doc("pairings/round-" + pr.n).set({ round: pr.n, imported: true, importedAt: Date.now(), sheetTab: pr.title, pairs: pr.pairs, start: pr.start });
+        saved++;
+      }
+      if (ladder) await db.doc("ladder/current").update({ round: current });
+      importProgress = "";
+      toast("Saved " + saved + " past rounds. The current round is " + current + ".");
+    }).then(function () { importProgress = ""; });
+  }
+  function saveManual() {
+    var n = Math.floor(Number(manual.round));
+    if (!isFinite(n) || n < 1 || n >= round()) { toast("Enter a past round number from 1 to " + (round() - 1) + ".", true); return; }
+    var pairs = [];
+    manual.text.split(/\r?\n/).forEach(function (line) {
+      line = line.trim();
+      if (!line) return;
+      var parts = (/\t|,/.test(line) ? line.split(/\t|,/) : line.split(/\s+vs\.?\s+/i)).map(function (s) { return s.trim(); });
+      if (parts.length < 2 || !parts[0] || !parts[1]) return;
+      pairs.push({ a: slugName(parts[1]), b: slugName(parts[0]), aName: parts[1], bName: parts[0], aRank: null, bRank: null,
+        board: String(pairs.length + 1), result: parts[2] || "", link: "", kind: "imported" });
+    });
+    if (!pairs.length) { toast("Add at least one game, one per line.", true); return; }
+    act(async function () {
+      await db.doc("pairings/round-" + n).set({ round: n, imported: true, manual: true, importedAt: Date.now(), pairs: pairs });
+      manual = { round: "", text: "" };
+    }, "Round " + n + " saved with " + pairs.length + " games.");
+  }
+  /* results are from the challenger's side (white): the challenger is `b`, the challenged player is `a` */
+  var RESULT_OPTIONS = [
+    ["", "No result yet"],
+    ["1-0", "1-0  Challenger wins"],
+    ["0.5-0.5", "0.5-0.5  Draw"],
+    ["0-1", "0-1  Challenger loses"],
+    ["1-0X", "1-0X  Forfeit win"],
+    ["0X-1", "0X-1  Forfeit loss"],
+    ["0X-0X", "0X-0X  No fault, no change"]
+  ];
+  function resultKind(r) {
+    var s = String(r || "").toUpperCase().replace(/\s+/g, "").replace(/½/g, "0.5").replace(/1\/2/g, "0.5").replace(/[–—]/g, "-");
+    var m = /^([0-9.]+[XF]?)-([0-9.]+[XF]?)$/.exec(s);
+    if (!m) return { kind: null, forfeit: false };
+    var x = m[1].replace(/[XF]/g, ""), y = m[2].replace(/[XF]/g, ""), forfeit = /[XF]/.test(s);
+    if (x === "1" && y === "0") return { kind: "win", forfeit: forfeit };
+    if (x === "0" && y === "1") return { kind: "loss", forfeit: forfeit };
+    if (x === "0.5" && y === "0.5") return { kind: "draw", forfeit: forfeit };
+    if (x === "0" && y === "0") return { kind: "none", forfeit: forfeit };
+    return { kind: null, forfeit: false };
+  }
+  function canonResult(r) {
+    var k = resultKind(r);
+    if (k.kind === "win") return k.forfeit ? "1-0X" : "1-0";
+    if (k.kind === "loss") return k.forfeit ? "0X-1" : "0-1";
+    if (k.kind === "draw") return "0.5-0.5";
+    if (k.kind === "none") return "0X-0X";
+    return "";
+  }
+  /* A win puts the challenger just above the opponent, a draw just below. A loss or no-fault result changes nothing. */
+  function ladderAfter(doc) {
+    var order = players().map(function (p) { return Object.assign({}, p); });
+    (doc.pairs || []).slice().sort(function (x, y) { return (x.aRank || 0) - (y.aRank || 0); }).forEach(function (g) {
+      var k = resultKind(g.result).kind;
+      if (k !== "win" && k !== "draw") return;
+      var ci = order.findIndex(function (p) { return p.id === g.b; }), oi = order.findIndex(function (p) { return p.id === g.a; });
+      if (ci < 0 || oi < 0 || ci < oi) return;
+      var ch = order.splice(ci, 1)[0];
+      order.splice(k === "win" ? oi : oi + 1, 0, ch);
+    });
+    return order;
+  }
+  function setResult(i, value) {
+    var saved = pairingsDocs.find(function (x) { return x.round === round(); });
+    if (!saved) return;
+    act(async function () {
+      var pairs = (saved.pairs || []).map(function (p) { return Object.assign({}, p); });
+      if (!pairs[i]) throw new Error("That game is no longer in the pairings.");
+      pairs[i].result = value;
+      await db.doc("pairings/round-" + round()).update({ pairs: pairs });
+    }, value ? "Result saved." : "Result cleared.");
+  }
+  function setGameUrl(i, url) {
+    var saved = pairingsDocs.find(function (x) { return x.round === round(); });
+    if (!saved) return;
+    if (url && !/^https:\/\/\S+$/i.test(url)) { toast("Enter the full game link, starting with https://", true); render(); return; }
+    act(async function () {
+      var pairs = (saved.pairs || []).map(function (p) { return Object.assign({}, p); });
+      if (!pairs[i]) throw new Error("That game is no longer in the pairings.");
+      pairs[i].link = url;
+      await db.doc("pairings/round-" + round()).update({ pairs: pairs });
+    }, url ? "Game link saved." : "Game link removed.");
+  }
+  function exportPairings(shown) {
+    if (!downloads || !shown) return;
+    function q(s) { s = String(s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+    var lines = ["Board,White (challenger),Rank,Black (challenged),Rank,Result,Game URL"];
+    shown.pairs.forEach(function (p, i) { lines.push([i + 1, q(p.bName), p.bRank, q(p.aName), p.aRank, q(p.result || ""), q(p.link || "")].join(",")); });
+    downloads.save({ filename: "pairings-round-" + round() + ".csv", data: lines.join("\n") })
+      .then(function () { toast("Pairings exported."); })
+      .catch(function (e) { if (!e || e.code !== "declined") toast("The file could not be saved here.", true); });
+  }
+  function valuesFrom(res) {
+    var p = res && res.payload;
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch (e) { p = null; } }
+    if (!p || !Array.isArray(p.values)) {
+      var t = ((res && res.content) || []).find(function (b) { return b.type === "text"; });
+      if (t) { try { p = JSON.parse(t.text); } catch (e) { p = null; } }
+    }
+    if (p && p.content && !Array.isArray(p.values)) p = p.content;
+    if (p && Array.isArray(p.values)) return p.values;
+    throw new Error("The sheet came back in a shape this page doesn't expect.");
+  }
+  function syncSheet() {
+    act(async function () {
+      if (!mcp) throw new Error("Google Sheets can't be reached.");
+      var res = await mcp.callTool(SHEET.server, "get_values", { spreadsheetId: SHEET.id, range: SHEET.range }, { cache: false });
+      var parsed = rowsToPlayers(valuesFrom(res));
+      await db.doc("ladder/current").set({
+        players: parsed.players,
+        maxJump: ladder ? maxJump() : 5,
+        round: ladder ? round() : 1,
+        importedAt: (ladder && ladder.importedAt) || Date.now(),
+        source: "sheet",
+        lastSync: Date.now()
+      });
+      toast("Synced " + parsed.players.length + " players from the sheet.");
+    });
+  }
+  function toggleImmunity(p) {
+    act(async function () {
+      if (ladder.source !== "sheet") {
+        var ps = players().map(function (q) { return Object.assign({}, q, q.id === p.id ? { immune: !p.immune } : {}); });
+        await db.doc("ladder/current").update({ players: ps });
+      }
+      if (ladder.source === "sheet" || !p.immune) {
+        var rv = moves.filter(function (m) { return m.type === "revoke" && m.playerId === p.id; });
+        for (var i = 0; i < rv.length; i++) await db.doc("moves/" + rv[i].id).delete();
+      }
+    }, "Immunity updated.");
+  }
+  function startNextRound() {
+    act(async function () {
+      var saved = pairingsDocs.find(function (x) { return x.round === round(); });
+      var upd = { round: round() + 1 };
+      if (saved) upd.players = ladderAfter(saved);
+      await db.doc("ladder/current").update(upd);
+      for (var i = 0; i < challenges.length; i++) await db.doc("challenges/" + challenges[i].id).delete();
+      proposal = null;
+    }, "Round " + (round() + 1) + " started. Results are applied to the ladder, and bye requests and challenges are cleared.");
+  }
+  function saveSettings() {
+    var s = settingsDraft || {};
+    var mj = Math.max(1, Math.floor(Number(s.maxJump)));
+    if (!isFinite(mj)) { toast("Enter a whole number.", true); return; }
+    act(function () { return db.doc("ladder/current").update({ maxJump: mj }); }, "Rules saved.");
+    settingsDraft = null;
+  }
+  function replaceLadder() {
+    if (!pendingImport) return;
+    var imp = pendingImport;
+    act(async function () {
+      await db.doc("ladder/current").set({
+        players: imp.players,
+        maxJump: ladder ? maxJump() : 5,
+        round: ladder ? round() : 1,
+        importedAt: Date.now()
+      });
+      pendingImport = null; pasteText = "";
+    }, "Ladder loaded: " + imp.players.length + " players.");
+  }
+  function exportCsv() {
+    if (!downloads) return;
+    var d = derive();
+    function q(s) { s = String(s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+    var lines = ["Rank,Name,Immune,Byes used"];
+    players().forEach(function (p, i) {
+      lines.push([i + 1, q(p.name), isImmune(p, d) ? "yes" : "no", d.byeCount.get(p.id) || 0].join(","));
+    });
+    var stamp = new Date().toISOString().slice(0, 10);
+    downloads.save({ filename: "chess-ladder-" + stamp + ".csv", data: lines.join("\n") })
+      .then(function () { toast("Ladder exported."); })
+      .catch(function (e) { if (!e || e.code !== "declined") toast("The file could not be saved here.", true); });
+  }
+
+  /* ---------- spreadsheet parsing ---------- */
+  function parseDelimited(text) {
+    var first = text.split(/\r?\n/).find(function (l) { return l.trim(); }) || "";
+    var delim = first.indexOf("\t") >= 0 ? "\t" : first.indexOf(",") >= 0 ? "," : first.indexOf(";") >= 0 ? ";" : ",";
+    var rows = [], row = [], cur = "", inQ = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (inQ) {
+        if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+        else cur += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === delim) { row.push(cur); cur = ""; }
+      else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(cur); rows.push(row); row = []; cur = "";
+      } else cur += ch;
+    }
+    row.push(cur); rows.push(row);
+    return rows;
+  }
+  function rowsToPlayers(rows) {
+    rows = rows.map(function (r) { return r.map(function (c) { return String(c == null ? "" : c).trim(); }); })
+               .filter(function (r) { return r.some(Boolean); });
+    if (!rows.length) throw new Error("No rows found.");
+    var norm = function (s) { return s.toLowerCase().replace(/[^a-z]/g, ""); };
+    var head = rows[0].map(norm);
+    var rankKeys = ["rank", "ranking", "position", "pos", "spot", "place", "ladderrank"];
+    var nameKeys = ["name", "username", "player", "playername", "fullname"];
+    var hasHeader = head.some(function (x) { return rankKeys.indexOf(x) >= 0 || nameKeys.indexOf(x) >= 0; });
+    var iRank = -1, iName = -1, iImm = -1;
+    if (hasHeader) {
+      iRank = head.findIndex(function (x) { return rankKeys.indexOf(x) >= 0; });
+      iName = head.findIndex(function (x) { return nameKeys.indexOf(x) >= 0; });
+      iImm = head.findIndex(function (x) { return x.indexOf("immun") === 0; });
+      if (iName < 0) iName = iRank === 0 ? 1 : 0;
+      rows = rows.slice(1);
+    } else if (rows[0].length > 1 && /^\d+$/.test(rows[0][0])) { iRank = 0; iName = 1; }
+    else { iName = 0; }
+    var list = [];
+    rows.forEach(function (r, n) {
+      var name = (r[iName] || "").trim();
+      if (!name) return;
+      var rk = iRank >= 0 && /^\d+$/.test(r[iRank] || "") ? Number(r[iRank]) : null;
+      if (iRank >= 0 && rk == null) return;
+      var im = iImm >= 0 && /^(y|yes|true|1|x|immune)$/i.test(r[iImm] || "");
+      list.push({ rank: rk, name: name, immune: im, n: n });
+    });
+    if (!list.length) throw new Error("No player names found. The sheet needs a Name column.");
+    if (list.every(function (p) { return p.rank != null; })) list.sort(function (a, b) { return a.rank - b.rank || a.n - b.n; });
+    var seen = {};
+    var out = list.map(function (p) {
+      var base = p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "player";
+      var id = base, k = 2;
+      while (seen[id]) id = base + "-" + k++;
+      seen[id] = true;
+      return { id: id, name: p.name, immune: p.immune };
+    });
+    var names = {}, dups = [];
+    out.forEach(function (p) { var key = p.name.toLowerCase(); if (names[key]) dups.push(p.name); names[key] = true; });
+    return { players: out, dups: dups };
+  }
+  function setImport(fn) {
+    importError = ""; pendingImport = null;
+    try { pendingImport = fn(); } catch (e) { importError = e.message || "That file could not be read."; }
+    render();
+  }
+  function onFile(ev) {
+    var f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    var isSheet = /\.(xlsx|xls|xlsm)$/i.test(f.name);
+    var rd = new FileReader();
+    rd.onload = function () {
+      setImport(function () {
+        if (isSheet) {
+          if (!window.XLSX) throw new Error("Excel files could not be opened here. Save the sheet as CSV and choose that file.");
+          var wb = XLSX.read(rd.result, { type: "array" });
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          return rowsToPlayers(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }));
+        }
+        return rowsToPlayers(parseDelimited(String(rd.result)));
+      });
+    };
+    rd.onerror = function () { importError = "That file could not be read."; render(); };
+    if (isSheet) rd.readAsArrayBuffer(f); else rd.readAsText(f);
+  }
+  function onPasteApply() {
+    setImport(function () { return rowsToPlayers(parseDelimited(pasteText)); });
+  }
+  function useSample() {
+    var names = ["Avery Lindqvist", "Marcus Oyelaran", "Priya Raman", "Tomás Herrera", "Hana Kobayashi", "Declan Murphy", "Sofia Petrov", "Jamal Whitfield", "Ingrid Solheim", "Wei Zhang", "Nadia Haddad", "Owen Fitzgerald"];
+    setImport(function () {
+      return { players: names.map(function (n, i) { return { id: n.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: n, immune: i === 2 || i === 6 }; }), dups: [], sample: true };
+    });
+  }
+
+  /* ---------- rendering ---------- */
+  function chip(text, cls) { return h("span", { class: "chip " + (cls || "") }, text); }
+  function confirmBox(text, yesLabel, onYes, danger) {
+    return h("div", { class: "confirm-note" },
+      h("span", { text: text }),
+      h("div", { class: "row" },
+        h("button", { class: danger ? "danger" : "", onclick: onYes, disabled: busy }, yesLabel),
+        h("button", { class: "ghost", onclick: function () { ask(null); } }, "Back")));
+  }
+
+  function masthead() {
+    return h("header", { class: "masthead" },
+      h("div", { class: "board-strip", "aria-hidden": "true" }),
+      h("div", { class: "title-row" },
+        h("h1", { text: "Chess Ladder" }),
+        ladder ? h("span", { class: "round-pill num", text: "Round " + round() }) : null),
+      ladder ? h("p", { class: "rules", text:
+        "Challenge anyone up to " + maxJump() + " spots above you, immune or not. New players can challenge anyone above them. Immunity is checked when pairings are run, so a player can still revoke it first. Request a bye if you need to sit out a round." }) : null);
+  }
+
+  function mePanel(d) {
+    var ps = players();
+    var sel = h("select", { id: "me-select", onchange: function (e) {
+      meId = e.target.value || null; confirmKey = null;
+      try { if (meId) localStorage.setItem("chess-ladder-me", meId); else localStorage.removeItem("chess-ladder-me"); } catch (x) {}
+      render();
+    } }, h("option", { value: "" }, "Choose your name"),
+      ps.map(function (p, i) { return h("option", { value: p.id, selected: p.id === meId }, "#" + (i + 1) + "  " + p.name); }));
+    var mi = indexOf(meId), me = mi >= 0 ? ps[mi] : null;
+    var kids = [h("label", { class: "field", for: "me-select" }, "Playing as", sel)];
+    if (!canWrite) kids.push(h("p", { class: "small warn-text", text: "Sign in with Google (top of the page) to send challenges, request a bye or revoke immunity." }));
+    if (me) kids.push(meCard(me, mi, d));
+    return h("section", { class: "panel", "aria-label": "Your ladder spot" }, kids);
+  }
+
+  function meCard(me, mi, d) {
+    var immune = isImmune(me, d), onBye = d.byeNow.has(me.id), mine = d.pending.filter(function (c) { return c.challengerId === me.id || c.targetId === me.id; });
+    var chips = [];
+    if (immune) chips.push(chip("Immune", "immune"));
+    if (onBye) chips.push(chip("Bye requested", "bye"));
+    if (mine.length) chips.push(chip("Open challenge", ""));
+    var lo = Math.max(1, mi + 1 - maxJump()), hi = mi;
+    var reach = mi === 0 ? "You are at the top. Nobody to challenge."
+      : isNewPlayer(me.id) ? "You're new this round, so you can challenge anyone above you (#1 to #" + hi + ")."
+      : "You can challenge " + (lo === hi ? "#" + hi : "#" + lo + " to #" + hi) + ".";
+    var acts = [];
+
+    // Bye
+    var byeBlock;
+    if (onBye) {
+      byeBlock = confirmKey === "cancelbye"
+        ? confirmBox("Cancel your bye request for this round?", "Cancel request", cancelBye)
+        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Bye requested for round " + round() }), h("span", { class: "muted small", text: "The organizer can see your request. You can't send challenges while it stands." })),
+            h("button", { class: "ghost", disabled: busy || !canWrite, onclick: function () { ask("cancelbye"); } }, "Cancel request"));
+    } else {
+      byeBlock = confirmKey === "bye"
+        ? confirmBox("Request a bye for round " + round() + "? You won't be able to send challenges this round.", "Request bye", takeBye)
+        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Request a bye" }), h("span", { class: "muted small", text: "Sit out this round. The organizer sees who has asked." })),
+            h("button", { disabled: busy || !canWrite, onclick: function () { ask("bye"); } }, "Request a bye"));
+    }
+    acts.push(byeBlock);
+
+    // Revoke immunity
+    if (immune) {
+      acts.push(confirmKey === "revoke"
+        ? confirmBox("Revoke your immunity? Only the organizer can restore it.", "Revoke immunity", revokeImmunity, true)
+        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Revoke your immunity" }), h("span", { class: "muted small", text: "Gives up your immune status." })),
+            h("button", { class: "danger", disabled: busy || !canWrite, onclick: function () { ask("revoke"); } }, "Revoke immunity")));
+    }
+
+    return h("div", { class: "panel", style: "padding:0;border:none;background:transparent;gap:14px" },
+      h("div", { class: "me-head" },
+        h("div", { class: "bigrank num", text: "#" + (mi + 1) }),
+        h("div", { style: "min-width:0" }, h("div", { class: "me-name", text: me.name }), chips.length ? h("div", { class: "chips" }, chips) : null)),
+      h("p", { class: "muted", text: reach }),
+      (function () {
+        var l = prefList(me.id, d);
+        return l.length ? h("p", { class: "small", text: "Your choices: " + l.map(function (c, i) { return (i + 1) + ". " + c.targetName; }).join("   ") }) : null;
+      })(),
+      h("div", { class: "actions" }, acts));
+  }
+
+  function ladderList(d) {
+    var ps = players(), mi = indexOf(meId), me = mi >= 0 ? ps[mi] : null;
+    var items = ps.map(function (p, i) {
+      var inReach = me && i < mi && (mi - i <= maxJump() || isNewPlayer(me.id));
+      var ps0 = prevStart(), delta = null;
+      if (ps0) {
+        if (ps0[p.id] == null) delta = h("span", { class: "delta new", text: "New" });
+        else {
+          var dv = ps0[p.id] - (i + 1);
+          delta = h("span", { class: "delta " + (dv > 0 ? "up" : dv < 0 ? "down" : "same"),
+            text: dv > 0 ? "▲ " + dv : dv < 0 ? "▼ " + (-dv) : "–",
+            title: dv > 0 ? "Up " + dv + " since last round" : dv < 0 ? "Down " + (-dv) + " since last round" : "No change since last round" });
+        }
+      }
+      var isMe = me && p.id === me.id;
+      var chips = [];
+      if (isMe) chips.push(chip("You", "you"));
+      if (isImmune(p, d)) chips.push(chip("Immune", "immune"));
+      if (d.byeNow.has(p.id)) chips.push(chip("Bye requested", "bye"));
+      var act = [];
+      if (inReach) {
+        var myList = prefList(me.id, d);
+        var mineIdx = myList.findIndex(function (c) { return c.targetId === p.id; });
+        var why = mineIdx >= 0 ? null : whyNot(me, p, d);
+        if (why) {
+          act.push(h("span", { class: "why", text: why }));
+        } else {
+          var nOpts = isNewPlayer(me.id) ? mi : Math.min(maxJump(), mi);
+          var opts = [h("option", { value: "0", selected: mineIdx < 0 }, "No challenge")];
+          for (var k = 1; k <= nOpts; k++) opts.push(h("option", { value: String(k), selected: mineIdx + 1 === k }, ordinal(k) + " choice"));
+          act.push(h("select", { class: "prefsel", id: "pref-" + p.id, "aria-label": "Your choice for " + p.name, disabled: busy || !canWrite,
+            onchange: function (e) { setPreference(p.id, Number(e.target.value)); } }, opts));
+        }
+      }
+      if (isAdmin && ladder.source === "sheet" && p.immune && d.revoked.has(p.id)) act.push(h("button", { class: "link", disabled: busy, onclick: function () { toggleImmunity(p); }, title: "Organizer: undo this player's revoked immunity" }, "Restore immunity"));
+      else if (isAdmin && ladder.source !== "sheet") act.push(h("button", { class: "link", disabled: busy, onclick: function () { toggleImmunity(p); }, title: "Organizer: turn immunity on or off" }, p.immune ? "Remove immunity" : "Grant immunity"));
+      return h("li", { class: (inReach ? "reach " : "") + (isMe ? "me" : "") },
+        h("div", { class: "rk num" }, "#" + (i + 1), delta),
+        h("div", { class: "nm" }, h("span", { text: p.name }), chips.length ? h("div", { class: "chips" }, chips) : null),
+        h("div", { class: "act" }, act));
+    });
+    return h("section", { "aria-label": "Ladder" },
+      h("div", { class: "panel", style: "padding:0;border:none;background:transparent;gap:10px" },
+        h("h2", {}, "The ladder", h("span", { class: "muted small num", text: ps.length + " players" })),
+        me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : h("p", { class: "small muted", text: "Choose your name above to see who you can challenge." }),
+        h("ol", { class: "ladder", style: "list-style:none" }, items)));
+  }
+
+  function roundDetails(doc) {
+    var pairs = doc.pairs || [];
+    return h("details", { open: openRounds.has(doc.round), ontoggle: function (e) { if (e.target.open) openRounds.add(doc.round); else openRounds.delete(doc.round); } },
+      h("summary", { text: "Round " + doc.round + " (" + pairs.length + (pairs.length === 1 ? " game)" : " games)") }),
+      h("ul", { class: "feed", style: "padding:8px 0 0;list-style:none" }, pairs.map(function (p, i) {
+        return h("li", {},
+          h("div", { class: "vs" },
+            h("span", { class: "meta num", text: "Board " + (p.board || i + 1) + "  " }),
+            h("b", { text: p.bName }), p.bRank ? " (#" + p.bRank + ")" : "", " vs ",
+            h("b", { text: p.aName }), p.aRank ? " (#" + p.aRank + ")" : "",
+            h("div", { class: "meta" }, p.result ? "Result " + p.result : "No result entered",
+              /^https:\/\//i.test(p.link || "") ? [" · ", h("a", { href: p.link, target: "_blank", rel: "noopener" }, "Game")] : null)));
+      })));
+  }
+  function pastRoundsSection() {
+    var past = pairingsDocs.filter(function (x) { return x.round < round(); }).sort(function (a, b) { return b.round - a.round; });
+    var kids = [
+      h("h3", { text: "Past rounds" }),
+      h("p", { class: "small muted", text: "Read from the Round tabs of the sheet, or entered by hand. The last three rounds are used to avoid repeat pairings. Reading from the sheet also sets the current round to the first one without pairings." }),
+      h("div", { class: "row" },
+        h("button", { disabled: busy || !mcp, onclick: importRounds }, past.length ? "Read past rounds again" : "Read past rounds from the sheet"),
+        past.length ? h("button", { class: "ghost", onclick: function () { openRounds = new Set(past.map(function (x) { return x.round; })); render(); } }, "Show all") : null,
+        past.length ? h("button", { class: "ghost", onclick: function () { openRounds = new Set(); render(); } }, "Hide all") : null),
+      importProgress ? h("p", { class: "small muted", text: importProgress }) : null,
+      past.length ? h("div", { style: "display:flex;flex-direction:column;gap:8px" }, past.map(roundDetails)) : h("p", { class: "muted", text: "No past rounds saved yet." }),
+      h("details", { open: manualOpen, ontoggle: function (e) { manualOpen = e.target.open; } },
+        h("summary", { text: "Enter a past round by hand" }),
+        h("div", { style: "display:flex;flex-direction:column;gap:10px;padding-top:8px" },
+          h("p", { class: "small muted", text: "One game per line: challenger (white), challenged (black) and, if you like, the result. Separate them with commas or write the names around \"vs\"." }),
+          h("label", { class: "field", for: "man-round" }, "Round number", h("input", { id: "man-round", type: "number", min: "1", value: manual.round, oninput: function (e) { manual.round = e.target.value; } })),
+          h("label", { class: "field", for: "man-text" }, "Games", h("textarea", { id: "man-text", placeholder: "fork2020, UpGoerFive, 1-0\njcarmody vs fwcj68", oninput: function (e) { manual.text = e.target.value; } }, manual.text)),
+          h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: saveManual }, "Save round"))))
+    ];
+    return h("div", { style: "display:flex;flex-direction:column;gap:10px" }, kids);
+  }
+
+  function pairingsSection(d) {
+    var saved = pairingsDocs.find(function (x) { return x.round === round(); });
+    var shown = proposal || (saved ? { pairs: saved.pairs || [], byes: saved.byes || [], unpaired: [], others: [] } : null);
+    var nChal = new Set(d.pending.map(function (c) { return c.challengerId; })).size;
+    var kids = [
+      h("h3", { text: "Pairings, round " + round() }),
+      h("details", {},
+        h("summary", { text: "How pairings are chosen" }),
+        h("ul", { class: "rules-list" },
+          h("li", { text: "Players who requested a bye are not paired." }),
+          h("li", { text: "Only challenges are paired. Someone who doesn't challenge can be left unpaired." }),
+          h("li", { text: "Players rank their challenges. Each gets their highest choice that is still available." }),
+          h("li", { text: "Challengers are handled from the top of the ladder down, so when several players want the same opponent, the higher-ranked one gets them." }),
+          h("li", { text: "An immune player's challenge counts as " + IMMUNE_WEIGHT + " spots higher on the ladder." }),
+          h("li", { text: "An immune player who hasn't revoked it can't be paired as the challenged player." }),
+          h("li", { text: "If none of a player's challenges can be matched, the tool offers another free player within " + maxJump() + " spots above and marks it as reassigned." }),
+          h("li", { text: "New players (not on last round's starting ladder) may be paired with anyone above them." }),
+          h("li", { text: "Two players can't be paired twice in a row. They can meet again once one of them has played someone else." }),
+          h("li", { text: "Pairings from the last three rounds are avoided when another option exists. A repeat is marked." }))),
+      h("p", { class: "small muted", text: nChal + (nChal === 1 ? " player has" : " players have") + " challenged this round." + (proposal ? " Run again to include later changes." : saved ? " Pairings are saved for this round." : "") })
+    ];
+    var btns = [h("button", { class: proposal ? "ghost" : "", disabled: busy, onclick: function () { proposal = computePairings(derive()); confirmKey = null; render(); } }, proposal || saved ? "Run pairings again" : "Run pairings")];
+    if (proposal) {
+      if (confirmKey === "savepair") kids.push(confirmBox("Replace the pairings already saved for round " + round() + "?", "Replace", savePairings));
+      else btns.push(h("button", { disabled: busy, onclick: function () { if (saved) ask("savepair"); else savePairings(); } }, "Save pairings"));
+      btns.push(h("button", { class: "ghost", onclick: function () { proposal = null; confirmKey = null; render(); } }, "Discard"));
+    }
+    if (shown && shown.pairs.length && downloads) btns.push(h("button", { class: "ghost", onclick: function () { exportPairings(shown); } }, "Export CSV"));
+    kids.push(h("div", { class: "row" }, btns));
+
+    if (shown) {
+      var meta = function (p) {
+        var t = p.kind === "reassigned" ? p.bName + " was reassigned because their challenges couldn't be matched." : p.bName + " challenged " + p.aName + (p.choice ? " (their " + ordinal(p.choice) + " choice)." : ".");
+        return t + (p.repeatRound ? " Repeat of round " + p.repeatRound + "." : "");
+      };
+      kids.push(shown.pairs.length
+        ? h("ol", { class: "feed", style: "list-style:none;padding:0" }, shown.pairs.map(function (p, i) {
+            return h("li", {}, h("div", { class: "vs" }, h("span", { class: "meta num", text: "Board " + (i + 1) + "  " }), h("b", { text: p.bName }), " (#" + p.bRank + ") vs ", h("b", { text: p.aName }), " (#" + p.aRank + ")",
+              h("div", { class: "meta", text: meta(p) })),
+              (!proposal && saved) ? h("select", { class: "prefsel", id: "res-" + i, "aria-label": "Result for board " + (i + 1), disabled: busy,
+                onchange: function (e) { setResult(i, e.target.value); } },
+                RESULT_OPTIONS.map(function (o) { return h("option", { value: o[0], selected: o[0] === canonResult(p.result) }, o[1]); })) : null,
+              (!proposal && saved) ? h("input", { type: "url", class: "urlin", id: "url-" + i, placeholder: "Game URL, e.g. https://lichess.org/...", value: p.link || "", "aria-label": "Game URL for board " + (i + 1), disabled: busy,
+                onchange: function (e) { setGameUrl(i, e.target.value.trim()); } }) : null);
+          }))
+        : h("p", { class: "muted", text: "No pairs yet. Nobody has a challenge that can be matched." }));
+      if (!proposal && saved && shown.pairs.length) {
+        var after = ladderAfter(saved), moved = [];
+        after.forEach(function (p, i) {
+          var was = indexOf(p.id);
+          if (was !== i) moved.push(p.name + ": #" + (was + 1) + " to #" + (i + 1));
+        });
+        kids.push(h("p", { class: "small muted", text: "White is the challenger. Mark each result when the game is done." }));
+        kids.push(h("details", {},
+          h("summary", { text: "Ladder after these results (" + moved.length + (moved.length === 1 ? " change)" : " changes)") }),
+          moved.length ? h("ul", { class: "rules-list" }, moved.map(function (t) { return h("li", { text: t }); })) : h("p", { text: "No one moves yet. A challenger's win puts them just above their opponent, a draw just below. Losses and 0X-0X change nothing." })));
+      }
+      if (shown.unpaired.length) kids.push(h("div", { class: "preview" }, h("b", { text: "Challenged but not paired" }),
+        shown.unpaired.map(function (u) { return h("span", { text: u.name + " (#" + u.rank + "): " + u.reasons.join("; ") + "." }); })));
+      if (shown.byes.length) kids.push(h("p", { class: "small muted", text: "On a bye: " + shown.byes.map(nameOfId).join(", ") + "." }));
+      if (shown.others.length) kids.push(h("p", { class: "small muted", text: "No challenge, not paired: " + shown.others.map(nameOfId).join(", ") + "." }));
+    }
+    return h("div", { style: "display:flex;flex-direction:column;gap:10px" }, kids);
+  }
+
+  function organizer(d) {
+    var parts = [h("h2", { text: "Organizer tools" })];
+    parts.push(h("p", { class: "small muted", text: "Only organizers see this section." }));
+
+    var rowsInfo = pendingImport
+      ? h("div", { class: "preview" },
+          h("b", { text: (pendingImport.sample ? "Example ladder: " : "Found ") + pendingImport.players.length + " players" }),
+          h("span", { text: pendingImport.players.slice(0, 3).map(function (p, i) { return "#" + (i + 1) + " " + p.name; }).join(", ") + (pendingImport.players.length > 3 ? ", ..." : "") }),
+          pendingImport.dups.length ? h("span", { class: "warn-text", text: "Repeated names: " + pendingImport.dups.join(", ") + ". Each is kept as its own player." }) : null,
+          confirmKey === "import"
+            ? confirmBox(ladder ? "Replace the current ladder? Ranks and immunity are overwritten." : "Load this ladder?", "Load ladder", replaceLadder)
+            : h("div", { class: "row" }, h("button", { disabled: busy, onclick: function () { ask("import"); } }, ladder ? "Replace ladder" : "Load ladder"),
+                h("button", { class: "ghost", onclick: function () { pendingImport = null; render(); } }, "Discard")))
+      : null;
+
+    var synced = ladder && ladder.lastSync ? new Date(ladder.lastSync).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null;
+    var sd0 = sheetDraft || { url: SHEET.id ? "https://docs.google.com/spreadsheets/d/" + SHEET.id + "/edit" : "", tab: (sheetCfg && sheetCfg.ladderTab) || "LADDER" };
+    parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+      h("h3", { text: "Google Sheet" }),
+      h("p", { class: "small muted", text: "Share the sheet as \"Anyone with the link can view\", paste its link, and name the tab that holds the ladder (columns Ranking, Username, Immunity). Past rounds are read from tabs named Round 1, Round 2 and so on." }),
+      h("label", { class: "field", for: "sheet-url" }, "Sheet link", h("input", { id: "sheet-url", type: "url", style: "width:100%", value: sd0.url, placeholder: "https://docs.google.com/spreadsheets/d/...", oninput: function (e) { sheetDraft = Object.assign({}, sd0, { url: e.target.value.trim() }); sd0 = sheetDraft; } })),
+      h("label", { class: "field", for: "sheet-tab" }, "Ladder tab name", h("input", { id: "sheet-tab", type: "text", style: "width:100%", value: sd0.tab, oninput: function (e) { sheetDraft = Object.assign({}, sd0, { tab: e.target.value }); sd0 = sheetDraft; } })),
+      h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: saveSheetSettings }, "Save sheet")),
+      h("p", { class: "small muted", text: SHEET.id ? "Using " + SHEET.label + ". " + (synced ? "Last synced " + synced + "." : "Not synced yet.") : "No sheet chosen yet." }),
+      confirmKey === "sync"
+        ? confirmBox("Pull the ladder from the sheet now? Ranks and immunity are replaced by what the sheet says.", "Sync now", syncSheet)
+        : h("div", { class: "row" }, h("button", { disabled: busy || !SHEET.id, onclick: function () { ask("sync"); } }, "Sync from Google Sheet")),
+      ladder && ladder.source === "sheet" ? h("p", { class: "small muted", text: "The sheet is the source of truth for ranks and immunity. Sync again after you update it." }) : null));
+    parts.push(organizersPanel());
+
+    parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+      h("h3", { text: "Or load from a file" }),
+      h("p", { class: "small muted", text: "Use columns Rank, Name and, if you like, Immune (yes or no). Upload an Excel or CSV file, or paste the rows straight from your sheet. Without a Rank column, the order of the rows is the ranking." }),
+      h("label", { class: "field", for: "file-in" }, "Excel or CSV file", h("input", { id: "file-in", type: "file", accept: ".xlsx,.xls,.xlsm,.csv,.tsv,.txt", onchange: onFile })),
+      h("label", { class: "field", for: "paste-in" }, "Or paste rows",
+        h("textarea", { id: "paste-in", placeholder: "Rank\tName\tImmune\n1\tJordan Reyes\tno", oninput: function (e) { pasteText = e.target.value; } }, pasteText)),
+      h("div", { class: "row" },
+        h("button", { class: "ghost", onclick: onPasteApply, disabled: busy }, "Read pasted rows"),
+        !ladder ? h("button", { class: "link", onclick: useSample }, "Try an example ladder") : null),
+      importError ? h("p", { class: "warn-text small", text: importError }) : null,
+      rowsInfo));
+
+    if (ladder) {
+      var sd = settingsDraft || { maxJump: maxJump() };
+      var reqs = moves.filter(function (m) { return m.type === "bye" && m.round === round(); }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
+      var nameOf = function (id) { var p = players()[indexOf(id)]; return p ? p.name : "Unknown player"; };
+      parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+        h("h3", { text: "Bye requests, round " + round() }),
+        reqs.length
+          ? h("ul", { class: "feed" }, reqs.map(function (m) {
+              var total = d.byeCount.get(m.playerId) || 0;
+              var when = new Date(m.at || Date.now()).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+              return h("li", {}, h("div", { class: "vs" }, h("b", { text: nameOf(m.playerId) }), h("div", { class: "meta", text: total + (total === 1 ? " bye" : " byes") + " requested in all rounds" })), h("span", { class: "meta", text: when }));
+            }))
+          : h("p", { class: "muted", text: "Nobody has requested a bye this round." })));
+      parts.push(pairingsSection(d));
+      parts.push(pastRoundsSection());
+      parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+        h("h3", { text: "Rules" }),
+        h("div", { class: "row" },
+          h("label", { class: "field", for: "set-jump" }, "Spots a player may challenge up", h("input", { id: "set-jump", type: "number", min: "1", value: sd.maxJump, oninput: function (e) { settingsDraft = { maxJump: e.target.value }; } }))),
+        h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: saveSettings }, "Save rules"))));
+
+      parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+        h("h3", { text: "Round " + round() }),
+        confirmKey === "round"
+          ? confirmBox((function () {
+              var sv = pairingsDocs.find(function (x) { return x.round === round(); });
+              if (!sv) return "Start round " + (round() + 1) + "? You haven't saved pairings for this round, so the ladder stays as it is. Bye requests and all challenges are cleared.";
+              var open = (sv.pairs || []).filter(function (g) { return !resultKind(g.result).kind; }).length;
+              return "Start round " + (round() + 1) + "? Results are applied to the ladder now." + (open ? " " + open + (open === 1 ? " game has" : " games have") + " no result and will not move anyone." : "") + " Bye requests and all challenges are cleared.";
+            })(), "Start round " + (round() + 1), startNextRound)
+          : h("div", { class: "row" },
+              h("button", { class: "ghost", disabled: busy, onclick: function () { ask("round"); } }, "Start next round"),
+              downloads ? h("button", { class: "ghost", onclick: exportCsv }, "Export ladder as CSV") : null)));
+    }
+    return h("section", { class: "panel", "aria-label": "Organizer tools" }, parts);
+  }
+
+  function render() {
+    if (editing) { dirty = true; return; }
+    dirty = false;
+    var d = derive();
+    var kids = [masthead()];
+    if (!dbMissing) kids.push(accountBar());
+
+    if (dbMissing) {
+      kids.push(h("section", { class: "panel empty" }, h("h2", { text: "Setup needed" }),
+        h("p", { class: "muted", text: "Fill in config.js with your Firebase project and Google API key. The README has the steps." })));
+    } else if (loadError) {
+      kids.push(h("section", { class: "panel empty" }, h("h2", { text: "The ladder can't be loaded" }),
+        h("p", { class: "muted", text: "Check your connection. If this keeps happening, the organizer should check the Firebase setup and security rules." })));
+    } else if (!ready.ladder) {
+      kids.push(h("section", { class: "panel empty" }, h("h2", { text: "Loading the ladder" }),
+        h("p", { class: "muted", text: slow ? "This is taking longer than usual. The ladder may be out of date until the connection recovers." : "One moment." })));
+    } else if (!ladder) {
+      kids.push(h("section", { class: "panel empty" }, h("h2", { text: "No ladder yet" }),
+        h("p", { class: "muted", text: isAdmin ? "Sync from your Google Sheet below to start the ladder." : "The organizer hasn't loaded the ladder yet. Check back soon." })));
+    } else {
+      kids.push(mePanel(d), ladderList(d));
+    }
+    if (isAdmin && !dbMissing && !loadError && ready.ladder) kids.push(organizer(d));
+    appEl.replaceChildren.apply(appEl, kids);
+  }
+
+  appEl.addEventListener("focusin", function (e) { if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox") editing = true; });
+  appEl.addEventListener("focusout", function () { editing = false; if (dirty) setTimeout(render, 0); });
+
+  /* ---------- sign-in, sheet, downloads ---------- */
+  function myUid() { return auth && auth.currentUser ? auth.currentUser.uid : null; }
+  function myEmail() { return me && me.email ? me.email.toLowerCase() : ""; }
+  function signIn() {
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function (e) {
+      if (e && e.code === "auth/popup-closed-by-user") return;
+      toast(e && e.code === "auth/unauthorized-domain" ? "Add this site's address under Authentication, Settings, Authorized domains in Firebase." : ((e && e.message) || "Sign-in failed."), true);
+    });
+  }
+  function accountBar() {
+    if (!auth) return h("div", { class: "acct" });
+    return me
+      ? h("div", { class: "acct" }, h("span", { class: "muted", text: "Signed in as " + (me.displayName || me.email) + (isAdmin ? (isOwner ? " (owner)" : " (organizer)") : "") }),
+          h("button", { class: "link", onclick: function () { auth.signOut(); } }, "Sign out"))
+      : h("div", { class: "acct" }, h("button", { class: "ghost", onclick: signIn }, "Sign in with Google"), h("span", { class: "muted", text: "Needed to challenge, request a bye or revoke immunity." }));
+  }
+  function sheetsShim() {
+    var base = "https://sheets.googleapis.com/v4/spreadsheets/";
+    async function call(url) {
+      var r;
+      try { r = await fetch(url); } catch (e) { throw new Error("Couldn't reach Google Sheets. Check your connection."); }
+      var j = null;
+      try { j = await r.json(); } catch (e) {}
+      if (!r.ok) {
+        var st = r.status;
+        throw new Error(st === 403 ? "Google wouldn't let this page read the sheet. Share it as \"Anyone with the link can view\", and check that the API key allows this site."
+          : st === 404 ? "That sheet wasn't found. Check the link."
+          : st === 400 ? "Google couldn't read that range. Check the tab name."
+          : "Google Sheets returned an error (" + st + ").");
+      }
+      return j || {};
+    }
+    return { callTool: async function (server, tool, args) {
+      if (!SHEET.id) throw new Error("Choose a Google Sheet first.");
+      if (!CFG.sheetsApiKey || /YOUR_/.test(CFG.sheetsApiKey)) throw new Error("Add your Google API key to config.js first.");
+      var key = encodeURIComponent(CFG.sheetsApiKey);
+      if (tool === "get_spreadsheet") return { payload: await call(base + SHEET.id + "?fields=sheets.properties.title&key=" + key) };
+      var j = await call(base + SHEET.id + "/values/" + encodeURIComponent(args.range) + "?key=" + key);
+      if (!j.values) j.values = [];
+      return { payload: j };
+    } };
+  }
+  function downloadShim() {
+    return { save: function (o) {
+      var blob = new Blob([o.data], { type: "text/csv;charset=utf-8" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = o.filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      return Promise.resolve();
+    } };
+  }
+  function saveSheetSettings() {
+    var sd = sheetDraft || { url: SHEET.id ? "https://docs.google.com/spreadsheets/d/" + SHEET.id : "", tab: (sheetCfg && sheetCfg.ladderTab) || "LADDER" };
+    var m = /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/.exec(sd.url) || /^([a-zA-Z0-9_-]{20,})$/.exec(sd.url);
+    var tab = (sd.tab || "").trim();
+    if (!m) { toast("Paste the full Google Sheet link.", true); return; }
+    if (!tab) { toast("Enter the name of the ladder tab.", true); return; }
+    act(async function () { await db.doc("settings/sheet").set({ sheetId: m[1], ladderTab: tab, savedAt: Date.now() }); sheetDraft = null; }, "Sheet saved.");
+  }
+  function organizersPanel() {
+    var rows = admins.slice().sort(function (a, b) { return a.id < b.id ? -1 : 1; }).map(function (a) {
+      return h("li", {}, h("div", { class: "vs" }, h("b", { text: a.id }), h("div", { class: "meta", text: a.role === "owner" ? "Owner" : "Organizer" })),
+        (isOwner && a.id !== myEmail()) ? h("button", { class: "link", disabled: busy, onclick: function () { removeAdmin(a.id); } }, "Remove") : null);
+    });
+    return h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+      h("h3", { text: "Organizers" }),
+      h("p", { class: "small muted", text: "Organizers see these tools and can change the ladder. Add the Google email address they sign in with." }),
+      rows.length ? h("ul", { class: "feed" }, rows) : null,
+      isOwner
+        ? [h("label", { class: "field", for: "adm-email" }, "Organizer's Google email", h("input", { id: "adm-email", type: "email", style: "width:100%", value: adminDraft, placeholder: "name@example.com", oninput: function (e) { adminDraft = e.target.value; } })),
+           h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: addAdmin }, "Add organizer"))]
+        : h("p", { class: "small muted", text: "Only an owner can add or remove organizers." }));
+  }
+  function addAdmin() {
+    var em = adminDraft.trim().toLowerCase();
+    if (!/^[^\s@\/]+@[^\s@\/]+\.[^\s@\/]+$/.test(em)) { toast("Enter a valid email address.", true); return; }
+    act(async function () { await db.doc("admins/" + em).set({ role: "organizer", addedBy: myEmail(), at: Date.now() }); adminDraft = ""; }, "Organizer added.");
+  }
+  function removeAdmin(em) {
+    act(function () { return db.doc("admins/" + em).delete(); }, "Organizer removed.");
+  }
+
+  /* ---------- connect ---------- */
+  function listen(col, assign) {
+    return db.collection(col).onSnapshot(function (snap) {
+      assign(snap.docs.map(function (s) { return Object.assign({ id: s.id }, s.data()); }));
+      render();
+    }, function (e) { loadError = e; render(); });
+  }
+  var sheetCfg = null;
+  async function boot() {
+    render();
+    var cfg = CFG.firebase;
+    if (!window.firebase || !cfg || !cfg.projectId || /YOUR_/.test(JSON.stringify(cfg))) { dbMissing = true; render(); return; }
+    firebase.initializeApp(cfg);
+    auth = firebase.auth(); db = firebase.firestore();
+    mcp = sheetsShim(); downloads = downloadShim();
+    var timer = setTimeout(function () { if (!ready.ladder) { slow = true; render(); } }, 10000);
+    db.doc("ladder/current").onSnapshot(function (s) {
+      ladder = s.exists ? s.data() : null;
+      if (!s.metadata.fromCache || s.exists) { ready.ladder = true; clearTimeout(timer); }
+      render();
+    }, function (e) { loadError = e; clearTimeout(timer); render(); });
+    db.doc("settings/sheet").onSnapshot(function (s) {
+      sheetCfg = s.exists ? s.data() : null;
+      SHEET.id = sheetCfg ? sheetCfg.sheetId : "";
+      SHEET.range = sheetCfg ? "'" + String(sheetCfg.ladderTab || "LADDER").replace(/'/g, "''") + "'!A1:E1004" : "";
+      SHEET.label = sheetCfg ? "the " + (sheetCfg.ladderTab || "LADDER") + " tab of your sheet" : "your Google Sheet";
+      render();
+    }, function () {});
+    listen("challenges", function (rows) { challenges = rows; });
+    listen("moves", function (rows) { moves = rows; });
+    listen("pairings", function (rows) { pairingsDocs = rows; });
+    auth.onAuthStateChanged(async function (u) {
+      me = u; canWrite = !!u; isAdmin = false; isOwner = false;
+      if (adminUnsub) { adminUnsub(); adminUnsub = null; }
+      admins = [];
+      if (u && u.email) {
+        try {
+          var snap = await db.doc("admins/" + u.email.toLowerCase()).get();
+          if (snap.exists) { isAdmin = true; isOwner = snap.data().role === "owner"; }
+        } catch (e) {}
+      }
+      if (isAdmin) adminUnsub = db.collection("admins").onSnapshot(function (sn) { admins = sn.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); render(); }, function () {});
+      render();
+    });
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

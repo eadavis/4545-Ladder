@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function adminDoc() { return /databases/$(database)/documents/admins/$(myEmail()); }
+    function isAdmin() { return signedIn() && exists(adminDoc()); }
+    function isOwner() { return isAdmin() && get(adminDoc()).data.role == 'owner'; }
+
+    // Who may use the organizer tools. Only owners change this list.
+    match /admins/{email} {
+      allow get: if signedIn() && email == myEmail();
+      allow list: if isAdmin();
+      allow write: if isOwner();
+    }
+
+    // Ladder order, round settings, pairings, results and the chosen sheet.
+    // Everyone can read; only organizers can change.
+    match /ladder/{id}    { allow read: if true; allow write: if isAdmin(); }
+    match /settings/{id}  { allow read: if true; allow write: if isAdmin(); }
+    match /pairings/{id}  { allow read: if true; allow write: if isAdmin(); }
+
+    // Player entries. Any signed-in player can add their own; they can change or
+    // remove only the ones they created. Organizers can remove any (round reset).
+    match /challenges/{id} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn()
+                    && (resource.data.uid == request.auth.uid || isAdmin())
+                    && request.resource.data.uid == resource.data.uid;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+    match /moves/{id} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+  }
+}
