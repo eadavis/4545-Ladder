@@ -220,7 +220,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   var ready = { ladder: false };
   var slow = false, dbMissing = false, loadError = null;
   var isAdmin = false, canWrite = false;
-  var meId = null;
+  var meId = null, adminPick = null, lichessUser = null, ratings = {}, ratingsKey = "", ratingsBusy = false;
   var confirmKey = null;
   var busy = false;
   var editing = false, dirty = false;
@@ -230,7 +230,119 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   var toastTimer = null;
   var appEl = document.getElementById("app");
 
-  try { meId = localStorage.getItem("chess-ladder-me"); } catch (e) {}
+  try { adminPick = localStorage.getItem("chess-ladder-me"); } catch (e) {}
+  try { lichessUser = JSON.parse(localStorage.getItem("chess-ladder-lichess") || "null"); } catch (e) { lichessUser = null; }
+
+  /* ---------- Lichess login (proves who a player is) and Classical ratings ---------- */
+  /* The login uses Lichess OAuth with PKCE. It needs no app registration and no secret. No permissions are requested, the
+     page only learns the account's username, then discards the token. */
+  var LI_CLIENT = (CFG && CFG.lichessClientId) || "ladder-4545-pages";
+  function b64url(buf) {
+    var b = ""; new Uint8Array(buf).forEach(function (x) { b += String.fromCharCode(x); });
+    return btoa(b).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function randomString(n) { var a = new Uint8Array(n); crypto.getRandomValues(a); return b64url(a); }
+  function redirectUri() { return location.origin + location.pathname; }
+  async function lichessLogin() {
+    try {
+      var verifier = randomString(48), state = randomString(16);
+      var challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+      sessionStorage.setItem("li-verifier", verifier); sessionStorage.setItem("li-state", state);
+      location.href = "https://lichess.org/oauth?" + new URLSearchParams({
+        response_type: "code", client_id: LI_CLIENT, redirect_uri: redirectUri(),
+        code_challenge_method: "S256", code_challenge: challenge, state: state
+      }).toString();
+    } catch (e) { toast("Couldn't start the Lichess login in this browser.", true); }
+  }
+  async function finishLichessLogin() {
+    var q = new URLSearchParams(location.search), code = q.get("code"), st = q.get("state");
+    if (!code || !st) { if (q.get("error")) { history.replaceState(null, "", redirectUri() + location.hash); toast("Lichess login was cancelled.", true); } return; }
+    var verifier = null, want = null;
+    try { verifier = sessionStorage.getItem("li-verifier"); want = sessionStorage.getItem("li-state"); sessionStorage.removeItem("li-verifier"); sessionStorage.removeItem("li-state"); } catch (e) {}
+    history.replaceState(null, "", redirectUri() + location.hash);
+    if (!verifier || st !== want) { toast("The Lichess login didn't match. Try again.", true); return; }
+    try {
+      var tr = await fetch("https://lichess.org/api/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "authorization_code", code: code, code_verifier: verifier, redirect_uri: redirectUri(), client_id: LI_CLIENT }).toString() });
+      var tj = await tr.json();
+      if (!tj.access_token) throw new Error("no token");
+      var ar = await fetch("https://lichess.org/api/account", { headers: { Authorization: "Bearer " + tj.access_token } });
+      var aj = await ar.json();
+      fetch("https://lichess.org/api/token", { method: "DELETE", headers: { Authorization: "Bearer " + tj.access_token } }).catch(function () {});
+      if (!aj || !aj.username) throw new Error("no account");
+      lichessUser = { id: slugName(aj.username), username: aj.username, at: Date.now() };
+      try { localStorage.setItem("chess-ladder-lichess", JSON.stringify(lichessUser)); } catch (e) {}
+      toast("Logged in as " + aj.username + ".");
+    } catch (e) { toast("Couldn't confirm your Lichess account. Try again.", true); }
+  }
+  function lichessLogout() {
+    lichessUser = null; meId = null; confirmKey = null;
+    try { localStorage.removeItem("chess-ladder-lichess"); } catch (e) {}
+    render();
+  }
+  /* Who is "me": a moderator may pick anyone. Everyone else is whoever their Lichess login proves they are. */
+  function syncMe() {
+    var li = lichessUser && indexOf(lichessUser.id) >= 0 ? lichessUser.id : null;
+    meId = isAdmin ? (adminPick && indexOf(adminPick) >= 0 ? adminPick : li) : li;
+  }
+  /* Checks usernames against Lichess. Returns {lowercase name: official username}. Throws, naming the bad ones, if any
+     name isn't a usable account, so callers can refuse to import anything. */
+  async function verifyLichess(names) {
+    var uniq = [], seen = {};
+    names.forEach(function (n) { var k = String(n).trim().toLowerCase(); if (!seen[k]) { seen[k] = 1; uniq.push(String(n).trim()); } });
+    var bad = [], ok = {};
+    var valid = uniq.filter(function (n) { if (/^[A-Za-z0-9_-]{2,30}$/.test(n)) return true; bad.push(n + " (not a possible Lichess username)"); return false; });
+    var found = {};
+    try {
+      for (var i = 0; i < valid.length; i += 300) {
+        var res = await fetch("https://lichess.org/api/users", { method: "POST", headers: { "Content-Type": "text/plain" }, body: valid.slice(i, i + 300).join(",") });
+        if (!res.ok) throw new Error("status " + res.status);
+        (await res.json()).forEach(function (u) { found[String(u.username || u.id).toLowerCase()] = u; });
+      }
+    } catch (e) { throw new Error("Couldn't reach Lichess to verify the usernames, so nothing was imported. Try again in a minute."); }
+    valid.forEach(function (n) {
+      var u = found[n.toLowerCase()];
+      if (!u) bad.push(n + " (no such Lichess account)");
+      else if (u.closed || u.disabled || u.tosViolation) bad.push(n + " (account is closed)");
+      else ok[n.toLowerCase()] = u.username;
+    });
+    if (bad.length) throw new Error("Nothing was imported. These usernames aren't valid Lichess accounts: " + bad.join(", ") + ".");
+    return ok;
+  }
+  function withOfficialNames(list, ok) {
+    return list.map(function (p) { var o = ok[String(p.name).trim().toLowerCase()]; return o ? Object.assign({}, p, { name: o }) : p; });
+  }
+  function ratingTag(p) {
+    var r = ratings[String(p.name).toLowerCase()];
+    if (r === undefined) return "";
+    if (!r || !r.r) return " (?)";
+    return " (" + r.r + (r.prov ? "?" : "") + ")";
+  }
+  async function ensureRatings() {
+    var names = players().map(function (p) { return String(p.name).toLowerCase(); });
+    var key = names.join(",");
+    if (!names.length || key === ratingsKey || ratingsBusy) return;
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem("chess-ladder-ratings") || "null"); } catch (e) {}
+    if (cached && cached.key === key && Date.now() - cached.at < 6 * 3600 * 1000) { ratings = cached.data; ratingsKey = key; render(); return; }
+    ratingsBusy = true;
+    try {
+      var data = {};
+      for (var i = 0; i < names.length; i += 300) {
+        var res = await fetch("https://lichess.org/api/users", { method: "POST", headers: { "Content-Type": "text/plain" }, body: names.slice(i, i + 300).join(",") });
+        if (!res.ok) throw new Error("rating lookup failed");
+        (await res.json()).forEach(function (u) {
+          var c = u.perfs && u.perfs.classical;
+          data[String(u.username || u.id).toLowerCase()] = c ? { r: c.rating, prov: !!c.prov } : null;
+        });
+      }
+      names.forEach(function (n) { if (!(n in data)) data[n] = null; });
+      ratings = data; ratingsKey = key;
+      try { localStorage.setItem("chess-ladder-ratings", JSON.stringify({ key: key, at: Date.now(), data: data })); } catch (e) {}
+      render();
+    } catch (e) { ratingsKey = key; }
+    ratingsBusy = false;
+  }
 
   /* ---------- derived values ---------- */
   function players() { return (ladder && ladder.players) || []; }
@@ -823,6 +935,8 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       if (!mcp) throw new Error("Google Sheets can't be reached.");
       var res = await mcp.callTool(SHEET.server, "get_values", { spreadsheetId: SHEET.id, range: SHEET.range }, { cache: false });
       var parsed = rowsToPlayers(valuesFrom(res));
+      var official = await verifyLichess(parsed.players.map(function (p) { return p.name; }));
+      parsed.players = withOfficialNames(parsed.players, official);
       await db.doc("ladder/current").set({
         players: parsed.players,
         maxJump: ladder ? maxJump() : 5,
@@ -881,6 +995,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     if (!pendingImport) return;
     var imp = pendingImport;
     act(async function () {
+      if (!imp.sample) imp = Object.assign({}, imp, { players: withOfficialNames(imp.players, await verifyLichess(imp.players.map(function (p) { return p.name; }))) });
       await db.doc("ladder/current").set({
         players: imp.players,
         maxJump: ladder ? maxJump() : 5,
@@ -1044,14 +1159,27 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
 
   function mePanel(d) {
     var ps = players();
-    var sel = h("select", { id: "me-select", onchange: function (e) {
-      meId = e.target.value || null; confirmKey = null;
-      try { if (meId) localStorage.setItem("chess-ladder-me", meId); else localStorage.removeItem("chess-ladder-me"); } catch (x) {}
-      render();
-    } }, h("option", { value: "" }, "Choose your name"),
-      ps.map(function (p, i) { return h("option", { value: p.id, selected: p.id === meId }, "#" + (i + 1) + "  " + p.name); }));
     var mi = indexOf(meId), me = mi >= 0 ? ps[mi] : null;
-    var kids = [h("label", { class: "field", for: "me-select" }, "Playing as", sel)];
+    var kids = [];
+    if (isAdmin) {
+      var sel = h("select", { id: "me-select", onchange: function (e) {
+        adminPick = e.target.value || null; confirmKey = null;
+        try { if (adminPick) localStorage.setItem("chess-ladder-me", adminPick); else localStorage.removeItem("chess-ladder-me"); } catch (x) {}
+        syncMe(); render();
+      } }, h("option", { value: "" }, "Choose a player"),
+        ps.map(function (p, i) { return h("option", { value: p.id, selected: p.id === meId }, "#" + (i + 1) + "  " + p.name); }));
+      kids.push(h("label", { class: "field", for: "me-select" }, "Playing as (moderators can choose anyone)", sel));
+    }
+    if (lichessUser) {
+      kids.push(h("div", { class: "row", style: "justify-content:space-between" },
+        h("p", { class: "small", style: "margin:0", text: "Logged in with Lichess as " + lichessUser.username + "." }),
+        h("button", { class: "ghost", onclick: lichessLogout }, "Log out")));
+      if (indexOf(lichessUser.id) < 0) kids.push(h("p", { class: "small warn-text", text: lichessUser.username + " isn't on the ladder. If that's a different account from the one you play on, log out and log in with the right one." }));
+    } else {
+      kids.push(h("div", { class: "row", style: "justify-content:space-between" },
+        h("p", { class: "small", style: "margin:0;flex:1 1 220px", text: isAdmin ? "Moderators can also log in with Lichess." : "Log in with your Lichess account to issue challenges. Lichess confirms your username, and this page asks for no other permissions." }),
+        h("button", { onclick: lichessLogin }, "Log in with Lichess")));
+    }
     if (!canWrite) kids.push(h("p", { class: "small warn-text", text: "Connecting. If this doesn't clear, check your connection." }));
     if (me) kids.push(meCard(me, mi, d));
     return h("section", { class: "panel", "aria-label": "Your ladder spot" }, kids);
@@ -1150,7 +1278,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       else if (isAdmin && ladder.source !== "sheet" && !earnedImmune().set) act.push(h("button", { class: "link", disabled: busy, onclick: function () { toggleImmunity(p); }, title: "Moderator: turn immunity on or off" }, p.immune ? "Remove immunity" : "Grant immunity"));
       return h("li", { class: (inReach ? "reach " : "") + (isMe ? "me" : "") },
         h("div", { class: "rk num" }, "#" + (i + 1), delta),
-        h("div", { class: "nm" }, h("span", { text: p.name }), chips.length ? h("div", { class: "chips" }, chips) : null),
+        h("div", { class: "nm" }, h("span", { text: p.name + ratingTag(p) }), chips.length ? h("div", { class: "chips" }, chips) : null),
         h("div", { class: "act" }, act));
     });
     return h("section", { "aria-label": "Ladder" },
@@ -1158,7 +1286,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         h("h2", {}, "The ladder", h("span", { class: "muted small num", text: ps.length + " players" })),
         cutoffNotice(),
         h("p", { class: "rules", text: "Challenge anyone up to " + maxJump() + " spots above you, immune or not. New players can challenge anyone above them. A player who was challenged last round and has someone above they can legally challenge is immune. Immunity is checked when pairings are run, so a player can still revoke it first. Request a bye if you need to sit out a round." }),
-        me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : h("p", { class: "small muted", text: "Choose your name above to see who you can challenge." }),
+        me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : h("p", { class: "small muted", text: "Log in with Lichess above to see who you can challenge." }),
         h("ol", { class: "ladder", style: "list-style:none" }, items)));
   }
 
@@ -1401,9 +1529,14 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       if (!nm) throw new Error("Enter the player's name.");
       var id = slugName(nm);
       if (indexOf(id) >= 0) throw new Error(nm + " is already on the ladder.");
-      await db.doc("ladder/current").update({ players: players().concat([{ id: id, name: nm, immune: false }]) });
+      var ok;
+      try { ok = await verifyLichess([nm]); } catch (e) { throw new Error(/Couldn't reach/.test(e.message) ? "Couldn't reach Lichess to check that username, so " + nm + " wasn't added. Try again in a minute." : nm + " isn't a valid Lichess account, so it wasn't added."); }
+      var official = ok[nm.toLowerCase()] || nm;
+      id = slugName(official);
+      if (indexOf(id) >= 0) throw new Error(official + " is already on the ladder.");
+      await db.doc("ladder/current").update({ players: players().concat([{ id: id, name: official, immune: false }]) });
       newPlayerName = "";
-    }, nm + " added to the bottom of the ladder.");
+    }, "Added to the bottom of the ladder.");
   }
   function removePlayer() {
     var pl = players()[indexOf(removeId)];
@@ -1726,6 +1859,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     if (editing) { dirty = true; return; }
     dirty = false;
     actCache = null; immCache = null;
+    syncMe(); ensureRatings();
     clearTimeout(cutoffTimer);
     if (cutoffMs() && Date.now() < cutoffMs() && cutoffMs() - Date.now() < 2147000000) cutoffTimer = setTimeout(render, cutoffMs() - Date.now() + 500);
     var d = derive();
@@ -1855,6 +1989,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   }
   var sheetCfg = null;
   async function boot() {
+    await finishLichessLogin();
     render();
     var cfg = CFG.firebase;
     if (!window.firebase || !cfg || !cfg.projectId || /YOUR_/.test(JSON.stringify(cfg))) { dbMissing = true; render(); return; }

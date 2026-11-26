@@ -78,3 +78,11 @@ Keep these in mind:
 ## Updating an existing site
 
 Replace `index.html` and republish `firestore.rules` (Firestore > Rules). The rules now include an `inactivity` collection (strikes and removals) and a `cards` collection (yellow and red cards). `config.js` is unchanged, so keep your own.
+
+## Lichess login and ratings
+
+Players log in with Lichess (OAuth, no secret and no app registration needed) so the page knows which ladder player they are. The page asks for no permissions, only learns the username, and throws the token away. Moderators keep a dropdown to act as any player. Ratings shown next to names are Classical ratings from the public Lichess API, cached in the browser for six hours. A `?` means provisional or none.
+
+Ladder names must match Lichess usernames. The page remembers the login in the browser, so players log in once per device. This identifies players in the page, but the Firestore rules are still trust-based: someone who bypasses the page could still write entries. Locking writes to verified players would need a small server (for example a Cloud Function) that checks the Lichess login and issues Firebase sign-in tokens.
+
+Usernames are checked against Lichess whenever a moderator adds a player, loads a ladder from a pasted list or file, or syncs it from the sheet. If any name isn't a valid, open Lichess account, nothing is imported and the message lists which names failed. Names are saved with Lichess's own capitalisation.
