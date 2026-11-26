@@ -6,7 +6,7 @@
 <title>Chess Ladder</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
 <style>
-/* Layout: one narrow column. Who-you-are and your options first, then the full ladder, then recent challenges, then organizer tools. */
+/* Layout: one narrow column. Who-you-are and your options first, then the full ladder, then recent challenges, then moderator tools. */
 :root {
   --bg: #eef1ee;
   --surface: #ffffff;
@@ -62,6 +62,10 @@ p { margin: 0; }
   height: 16px; border-radius: 3px; border: 1px solid var(--line);
   background: repeating-conic-gradient(var(--surface2) 0 25%, var(--surface) 0 50%) 0 0 / 32px 32px;
 }
+.theme { margin-left: auto; display: flex; gap: 2px; align-self: center; }
+.theme button { background: none; border: 1px solid transparent; color: var(--muted); padding: 5px; border-radius: 6px; line-height: 0; opacity: 0.8; }
+.theme button[aria-pressed="true"] { color: var(--ink); border-color: var(--line); opacity: 1; }
+.theme svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .title-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
 .round-pill { font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 
@@ -86,6 +90,9 @@ button.danger { background: transparent; color: var(--warn); border-color: var(-
 button.link { background: none; border: none; padding: 2px 0; color: var(--muted); font-weight: 500; font-size: 16px; text-decoration: underline; }
 button[disabled] { opacity: 0.45; cursor: not-allowed; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row:has(> label.field) { align-items: flex-end; }
+.row > label.field input, .row > label.field select { min-height: 42px; }
+.row > button { min-height: 42px; }
 
 .me-head { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .bigrank { font-family: var(--font-display); font-weight: 700; font-size: 48px; line-height: 1; color: var(--accent); min-width: 2ch; }
@@ -96,8 +103,9 @@ button[disabled] { opacity: 0.45; cursor: not-allowed; }
 .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); }
 .tabs button { background: transparent; color: var(--muted); border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 8px 12px; margin-bottom: -1px; }
 .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
-.stat-head, .stat-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, 3.6em); gap: 4px; align-items: center; text-align: right; }
-.stat-head { font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 12px; }
+.stat-head, .stat-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, 64px); gap: 4px; align-items: center; text-align: center; }
+.stat-head > span:not(:first-child), .stat-row > .num { text-align: center; justify-self: center; min-width: 2.4em; }
+.stat-head { font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 13px; }
 .stat-head span:first-child, .stat-row .nm { text-align: left; }
 .stat-list { display: flex; flex-direction: column; gap: 6px; }
 .stat-list details { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
@@ -105,7 +113,7 @@ button[disabled] { opacity: 0.45; cursor: not-allowed; }
 .stat-list summary::-webkit-details-marker { display: none; }
 .stat-row .nm { overflow-wrap: anywhere; font-weight: 600; }
 .stat-list .mine { background: var(--reach) !important; border-color: var(--accent) !important; }
-.stat-row .top { background: var(--bye-bg); color: var(--bye); font-weight: 700; border-radius: 4px; padding: 1px 6px; }
+.stat-row .top { background: var(--bye-bg); color: var(--bye); font-weight: 700; border-radius: 4px; padding: 1px 0; text-align: center; }
 .stat-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 16px; }
 .chip.inactive { background: var(--surface2); color: var(--warn); }
 .chip.bye { background: var(--bye-bg); color: var(--bye); }
@@ -202,10 +210,12 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   var SHEET = { id: "", range: "", label: "your Google Sheet" };
   var db = null, auth = null, downloads = null, mcp = null, me = null;
   var admins = [], isOwner = false, adminUnsub = null, adminDraft = "", sheetDraft = null;
-  var ladder = null, challenges = [], moves = [], pairingsDocs = [], proposal = null;
+  var ladder = null, challenges = [], moves = [], pairingsDocs = [], attempts = [], attemptSeq = 0, manualPick = {};
   var tab = "ladder";
-  var openSections = new Set(["round", "byes", "inactive", "pairings"]);
-  var inactivityDocs = [], actCache = null;
+  var openSections = new Set();
+  var cutoffText = null, nextCutoff = "", cutoffTimer = null;
+  var inactivityDocs = [], actCache = null, cardDocs = [];
+  var cardDraft = { playerId: "", type: "yellow", round: "", note: "" }, newPlayerName = "", removeId = "";
   var openRounds = new Set(), importProgress = "", manual = { round: "", text: "" }, manualOpen = false;
   var ready = { ladder: false };
   var slow = false, dbMissing = false, loadError = null;
@@ -229,7 +239,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function indexOf(id) { return players().findIndex(function (p) { return p.id === id; }); }
 
   function derive() {
-    var importedAt = (ladder && ladder.importedAt) || 0;
+    var importedAt = Math.max((ladder && ladder.importedAt) || 0, (ladder && ladder.roundStartedAt) || 0);
     var d = { revoked: new Set(), byeNow: new Map(), byeCount: new Map(), busy: new Set(), pending: [], done: [] };
     moves.forEach(function (m) {
       if (m.type === "revoke" && (m.at || 0) >= importedAt) d.revoked.add(m.playerId);
@@ -246,7 +256,31 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     d.done.sort(function (a, b) { return (b.resolvedAt || b.at || 0) - (a.resolvedAt || a.at || 0); });
     return d;
   }
-  function isImmune(p, d) { return !!p.immune && !d.revoked.has(p.id); }
+  /* Immunity is earned: a player who was the challenged (higher ranked) player in last round's pairings, and who has
+     someone above them on the ladder they could legally challenge, is immune this round. Before any round has been
+     recorded, the sheet's own immunity flag is used. */
+  var immCache = null;
+  function earnedImmune() {
+    if (immCache) return immCache;
+    var prev = pairingsDocs.find(function (x) { return x.round === round() - 1 && (x.pairs || []).length; });
+    var set = null;
+    if (prev) {
+      set = new Set();
+      var ps = players();
+      (prev.pairs || []).forEach(function (g) {
+        var mi = indexOf(g.a);
+        if (mi < 1) return;
+        for (var ti = mi - 1; ti >= 0; ti--) {
+          if (mi - ti > maxJump() && !isNewPlayer(g.a)) break;
+          if (!playedInARow(g.a, ps[ti].id)) { set.add(g.a); break; }
+        }
+      });
+    }
+    immCache = { set: set };
+    return immCache;
+  }
+  function hasImmunity(p) { var e = earnedImmune(); return e.set ? e.set.has(p.id) : !!p.immune; }
+  function isImmune(p, d) { return hasImmunity(p) && !d.revoked.has(p.id); }
 
   /* ladder at the start of the previous round, for rank change and "new" players */
   function prevStart() {
@@ -278,7 +312,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   }
   function errText(e) {
     var code = e && e.code;
-    if (code === "permission-denied") return "That isn't allowed. Reload the page and try again, or ask an organizer.";
+    if (code === "permission-denied") return "That isn't allowed. Reload the page and try again, or ask a moderator.";
     if (code === "unavailable" || code === "resource-exhausted") return "Too busy right now. Try again in a moment.";
     return (e && e.message) || "Something went wrong. Try again.";
   }
@@ -313,6 +347,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   }
   function clearChallenges() {
     act(async function () {
+      needChalOpen();
       var mine = prefList(meId, derive());
       for (var i = 0; i < mine.length; i++) await db.doc("challenges/" + mine[i].id).delete();
     }, "All your challenges are cleared.");
@@ -320,6 +355,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   /* k = 0 removes the challenge; k >= 1 puts the target at that place in the player's ordered choices. */
   function setPreference(targetId, k) {
     act(async function () {
+      needChalOpen();
       var d = derive();
       var meP = players()[indexOf(meId)], t = players()[indexOf(targetId)];
       if (!meP || !t) throw new Error("That player is no longer on the ladder.");
@@ -343,14 +379,70 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       }
     }, k === 0 ? "Challenge removed." : "Saved as your " + ordinal(k) + " choice.");
   }
+  /* ---------- challenge cutoff (UTC) ---------- */
+  function fmtUtc(ms) { return new Date(ms).toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
+  function inputUtc(ms) { return ms ? new Date(ms).toISOString().slice(0, 16) : ""; }
+  function parseUtc(v) { if (!v) return null; var t = Date.parse(v + ":00Z"); return isFinite(t) ? t : NaN; }
+  function cutoffMs() { return ladder && ladder.cutoff ? ladder.cutoff : null; }
+  /* Players can't change challenges after the cutoff. Moderators still can. */
+  function chalLocked() { var c = cutoffMs(); return !!c && Date.now() >= c && !isAdmin; }
+  function canChal() { return canWrite && !chalLocked(); }
+  function needChalOpen() { if (chalLocked()) throw new Error("Challenges closed at " + fmtUtc(cutoffMs()) + ". Ask a moderator to change them."); }
+  function cutoffNotice() {
+    var c = cutoffMs();
+    if (!c) return null;
+    var closed = Date.now() >= c;
+    return h("p", { class: "small " + (closed ? "warn-text" : "muted"), text: closed
+      ? "Challenges closed at " + fmtUtc(c) + "." + (isAdmin ? " You can still change them as a moderator." : " Only moderators can change them now.")
+      : "Challenges close at " + fmtUtc(c) + "." });
+  }
+  function nextCutoffField() {
+    return h("label", { class: "field", for: "next-cutoff" }, "Challenge cutoff for round " + (round() + 1) + " (UTC, leave empty for none)",
+      h("input", { id: "next-cutoff", type: "datetime-local", value: nextCutoff, style: "font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;max-width:100%", oninput: function (e) { nextCutoff = e.target.value; } }));
+  }
+  function saveCutoff() {
+    act(async function () {
+      var t = parseUtc(cutoffText == null ? inputUtc(cutoffMs()) : cutoffText);
+      if (t !== null && isNaN(t)) throw new Error("Enter the cutoff as a date and time.");
+      await db.doc("ladder/current").update({ cutoff: t });
+      cutoffText = null;
+    }, "Challenge cutoff saved.");
+  }
+  function cutoffEditor() {
+    var cur = cutoffMs();
+    return h("div", { style: "display:flex;flex-direction:column;gap:8px" },
+      h("p", { class: "small muted", text: cur ? "Challenge cutoff: " + fmtUtc(cur) + (Date.now() >= cur ? " (closed to players)." : ".") : "No challenge cutoff set. Players can change challenges any time." }),
+      h("div", { class: "row" },
+        h("label", { class: "field", for: "cutoff-in" }, "Change cutoff (UTC)",
+          h("input", { id: "cutoff-in", type: "datetime-local", value: cutoffText == null ? inputUtc(cur) : cutoffText, style: "font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;max-width:100%", oninput: function (e) { cutoffText = e.target.value; } })),
+        h("button", { class: "ghost", disabled: busy, onclick: saveCutoff }, "Save cutoff")));
+  }
+  /* Games in the saved pairings that still need a result, or a game link where one is required. */
+  function needsLink(res) { var k = resultKind(res); return !k.forfeit && (k.kind === "win" || k.kind === "loss" || k.kind === "draw"); }
+  function roundProblems(sv) {
+    var out = [];
+    ((sv && sv.pairs) || []).forEach(function (g, i) {
+      var lab = "Board " + (g.board || i + 1) + " (" + g.bName + " vs " + g.aName + ")";
+      if (!resultKind(g.result).kind) out.push(lab + " has no result");
+      else if (needsLink(g.result) && !/^https:\/\//i.test(g.link || "")) out.push(lab + " needs a game link");
+    });
+    return out;
+  }
+  function tryStartRound() {
+    var sv = pairingsDocs.find(function (x) { return x.round === round(); });
+    var bad = roundProblems(sv);
+    if (bad.length) { toast("Can't start the next round. " + bad.slice(0, 4).join("; ") + (bad.length > 4 ? "; and " + (bad.length - 4) + " more" : "") + ".", true); return; }
+    if (sv && (sv.pairs || []).length && !sv.nextLadder) { toast("Apply results first, so the new ladder is ready.", true); return; }
+    ask("round");
+  }
   function withdraw(c) {
-    act(function () { return db.doc("challenges/" + c.id).delete(); }, "Challenge withdrawn.");
+    act(function () { needChalOpen(); return db.doc("challenges/" + c.id).delete(); }, "Challenge withdrawn.");
   }
   function takeBye() {
     act(async function () {
       if (derive().byeNow.has(meId)) throw new Error("You already requested a bye this round.");
       await db.collection("moves").add({ type: "bye", uid: myUid(), playerId: meId, round: round(), at: Date.now() });
-    }, "Bye requested. The organizer can see it.");
+    }, "Bye requested. The moderator can see it.");
   }
   function cancelBye() {
     act(async function () {
@@ -368,9 +460,8 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     act(function () { return db.collection("moves").add({ type: "revoke", uid: myUid(), playerId: meId, at: Date.now() }); }, "Immunity revoked.");
   }
 
-  /* organizer */
+  /* moderator */
   /* pairings */
-  var IMMUNE_WEIGHT = 1.5; // an immune player's challenge ranks this many spots higher
   function nameOfId(id) { var p = players()[indexOf(id)]; return p ? p.name : "Unknown player"; }
   function pairKey(a, b) { return a < b ? a + "|" + b : b + "|" + a; }
   function recentPairs() {
@@ -391,83 +482,84 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     return m;
   }
   function playedInARow(x, y) { var m = lastOpponents(); return m[x] === y && m[y] === x; }
-  function computePairings(d) {
+  /* Builds one set of pairings. `forced` is a list of {c, t} pairs the moderator chose by hand; they are fixed first.
+     Only requested challenges are paired automatically. Players who earned immunity (even if they revoked it) are handled
+     first, higher ranked first, then everyone else from the top of the ladder down. */
+  function computePairings(d, forced) {
+    forced = forced || [];
     var ps = players(), maxJ = maxJump(), hist = recentPairs();
     var last = lastOpponents();
     var blockedPair = function (x, y) { return last[x] === y && last[y] === x; };
     var pos = {};
     ps.forEach(function (p, i) { pos[p.id] = i; });
-    var immune = function (id) { return isImmune(ps[pos[id]], d); };
+    var held = function (id) { return hasImmunity(ps[pos[id]]); };
+    var shield = function (id) { return isImmune(ps[pos[id]], d); };
     var onBye = function (id) { return d.byeNow.has(id); };
     var taken = new Set(), pairs = [], unpaired = [];
-    var wants = new Map();
-    d.pending.slice().sort(function (a, b) {
-      return (a.pref != null ? a.pref : 1e9) - (b.pref != null ? b.pref : 1e9) || (a.at || 0) - (b.at || 0);
+    var mk = function (c, t, kind, choice) {
+      return { a: t, b: c, aName: ps[pos[t]].name, bName: ps[pos[c]].name, aRank: pos[t] + 1, bRank: pos[c] + 1,
+        kind: kind, choice: choice, repeatRound: hist.get(pairKey(c, t)) || null };
+    };
+    var wants = new Map(), askedBy = new Map();
+    d.pending.slice().sort(function (x, y) {
+      return (x.pref != null ? x.pref : 1e9) - (y.pref != null ? y.pref : 1e9) || (x.at || 0) - (y.at || 0);
     }).forEach(function (c) {
       if (pos[c.challengerId] == null || pos[c.targetId] == null) return;
       if (!wants.has(c.challengerId)) wants.set(c.challengerId, []);
       var l = wants.get(c.challengerId);
       if (l.indexOf(c.targetId) < 0) l.push(c.targetId);
+      if (!askedBy.has(c.targetId)) askedBy.set(c.targetId, []);
+      if (askedBy.get(c.targetId).indexOf(c.challengerId) < 0) askedBy.get(c.targetId).push(c.challengerId);
     });
-    var order = Array.from(wants.keys()).filter(function (id) { return !onBye(id); });
-    order.sort(function (a, b) {
-      var ea = pos[a] - (immune(a) ? IMMUNE_WEIGHT : 0), eb = pos[b] - (immune(b) ? IMMUNE_WEIGHT : 0);
-      return ea - eb || pos[a] - pos[b];
+    forced.forEach(function (f) {
+      if (pos[f.c] == null || pos[f.t] == null || f.c === f.t || taken.has(f.c) || taken.has(f.t)) return;
+      taken.add(f.c); taken.add(f.t);
+      pairs.push(mk(f.c, f.t, "manual", null));
     });
-    order.forEach(function (c, i) {
+    var order = Array.from(wants.keys()).filter(function (id) { return !onBye(id) && !taken.has(id); });
+    order.sort(function (x, y) { return (held(x) ? 0 : 1) - (held(y) ? 0 : 1) || pos[x] - pos[y]; });
+    var reachOf = function (c, t) { return pos[t] < pos[c] && (pos[c] - pos[t] <= maxJ || isNewPlayer(c)); };
+    var usable = function (c, t) { return !taken.has(t) && !onBye(t) && !shield(t) && reachOf(c, t) && !blockedPair(c, t); };
+    order.forEach(function (c) {
       if (taken.has(c)) return;
-      var later = order.slice(i + 1).filter(function (x) { return !taken.has(x); });
-      var contest = function (t) { return later.filter(function (x) { return wants.get(x).indexOf(t) >= 0; }).length; };
-      var reach = function (t) { return pos[t] < pos[c] && (pos[c] - pos[t] <= maxJ || isNewPlayer(c)); };
-      var free = function (t) { return !taken.has(t) && !onBye(t) && !immune(t); };
-      var rep = function (t) { return hist.has(pairKey(c, t)); };
       var why = [], ticked = [];
       wants.get(c).forEach(function (t) {
         var nm = ps[pos[t]].name;
-        if (!reach(t)) why.push(nm + " is out of reach");
+        if (!reachOf(c, t)) why.push(nm + " is out of reach");
         else if (blockedPair(c, t)) why.push("your last game was against " + nm);
-        else if (immune(t)) why.push(nm + " is immune");
+        else if (shield(t)) why.push(nm + " is immune");
         else if (onBye(t)) why.push(nm + " is on a bye");
         else if (taken.has(t)) why.push(nm + " is already paired");
+        else if (held(t) && wants.has(t) && !onBye(t) && wants.get(t).some(function (u) { return u !== c && usable(t, u); })) why.push(nm + " can still get their own challenge");
         else ticked.push(t);
       });
-      var pool = [];
-      for (var j = isNewPlayer(c) ? 0 : Math.max(0, pos[c] - maxJ); j < pos[c]; j++) {
-        var id = ps[j].id;
-        if (free(id) && ticked.indexOf(id) < 0 && !blockedPair(c, id)) pool.push(id);
-      }
-      var sortT = function (a, b) { return contest(a) - contest(b) || pos[a] - pos[b]; };
-      var sortF = function (a, b) { return contest(a) - contest(b) || pos[b] - pos[a]; };
+      var rep = function (t) { return hist.has(pairKey(c, t)); };
       var tNR = ticked.filter(function (t) { return !rep(t); }), tR = ticked.filter(rep);
-      var pNR = pool.filter(function (t) { return !rep(t); }), pR = pool.filter(rep);
-      var pick = null, kind = null;
-      if (tNR.length) { pick = tNR[0]; kind = "challenge"; }
-      else if (pNR.length) { pick = pNR.sort(sortF)[0]; kind = "reassigned"; }
-      else if (tR.length) { pick = tR[0]; kind = "challenge"; }
-      else if (pR.length) { pick = pR.sort(sortF)[0]; kind = "reassigned"; }
+      var pick = tNR.length ? tNR[0] : tR.length ? tR[0] : null;
       if (pick) {
         taken.add(c); taken.add(pick);
-        pairs.push({ a: pick, b: c, aName: ps[pos[pick]].name, bName: ps[pos[c]].name, aRank: pos[pick] + 1, bRank: pos[c] + 1,
-          kind: kind, choice: kind === "challenge" ? wants.get(c).indexOf(pick) + 1 : null, repeatRound: hist.get(pairKey(c, pick)) || null });
+        pairs.push(mk(c, pick, "challenge", wants.get(c).indexOf(pick) + 1));
       } else {
-        if (!why.length || !pool.length) why.push("nobody free within " + maxJ + " spots above");
-        unpaired.push({ id: c, name: ps[pos[c]].name, rank: pos[c] + 1, reasons: why });
+        unpaired.push({ id: c, name: ps[pos[c]].name, rank: pos[c] + 1, reasons: why.length ? why : ["no challenge could be matched"] });
       }
     });
-    unpaired = unpaired.filter(function (u) { return !taken.has(u.id); });
+    unpaired = unpaired.filter(function (u) { return !taken.has(u.id); }).map(function (u) {
+      u.choices = (wants.get(u.id) || []).map(nameOfId);
+      u.by = (askedBy.get(u.id) || []).map(nameOfId);
+      return u;
+    });
     pairs.sort(function (x, y) { return x.aRank - y.aRank; });
     var asked = new Set(wants.keys());
     var byes = ps.filter(function (p) { return onBye(p.id); }).map(function (p) { return p.id; });
     var others = ps.filter(function (p) { return !taken.has(p.id) && !onBye(p.id) && !asked.has(p.id); }).map(function (p) { return p.id; });
-    return { pairs: pairs, unpaired: unpaired, byes: byes, others: others };
+    return { pairs: pairs, unpaired: unpaired, byes: byes, others: others, forced: forced };
   }
-  function savePairings() {
-    if (!proposal) return;
-    var pr = proposal, r = round();
+  function savePairings(att) {
+    var r = round();
     act(async function () {
-      await db.doc("pairings/round-" + r).set({ round: r, savedAt: Date.now(), pairs: pr.pairs, byes: pr.byes, start: currentStart() });
-      proposal = null;
-    }, "Pairings saved for round " + r + ".");
+      await db.doc("pairings/round-" + r).set({ round: r, savedAt: Date.now(), pairs: att.res.pairs, byes: att.res.byes, start: currentStart() });
+      attempts = []; confirmKey = null;
+    }, "Pairings Attempt " + att.n + " saved for round " + r + ". The other sets were discarded.");
   }
   /* past rounds */
   function slugName(n) { return String(n).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "player"; }
@@ -558,15 +650,30 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function saveManual() {
     var n = Math.floor(Number(manual.round));
     if (!isFinite(n) || n < 1 || n >= round()) { toast("Enter a past round number from 1 to " + (round() - 1) + ".", true); return; }
-    var pairs = [];
-    manual.text.split(/\r?\n/).forEach(function (line) {
-      line = line.trim();
-      if (!line) return;
-      var parts = (/\t|,/.test(line) ? line.split(/\t|,/) : line.split(/\s+vs\.?\s+/i)).map(function (s) { return s.trim(); });
-      if (parts.length < 2 || !parts[0] || !parts[1]) return;
-      pairs.push({ a: slugName(parts[1]), b: slugName(parts[0]), aName: parts[1], bName: parts[0], aRank: null, bRank: null,
-        board: String(pairs.length + 1), result: parts[2] || "", link: "", kind: "imported" });
+    var pairs = [], bad = null;
+    manual.text.split(/\r?\n/).forEach(function (raw, li) {
+      if (bad || !raw.trim()) return;
+      var line = raw, um = /https:\/\/\S+/i.exec(line), gameLink = um ? um[0].replace(/[,;]+$/, "") : "";
+      if (um) line = line.replace(um[0], "");
+      line = line.trim().replace(/[,\t\s]+$/, "");
+      var w, bl, res;
+      if (/\t|,/.test(line)) {
+        var parts = line.split(/\t|,/).map(function (x) { return x.trim(); });
+        w = parts[0]; bl = parts[1]; res = parts[2];
+      } else {
+        var sp = line.split(/\s+vs\.?\s+/i);
+        w = sp[0] && sp[0].trim();
+        var tail = (sp[1] || "").trim(), tm = /^(.*\S)\s+(\S+)$/.exec(tail);
+        bl = tm ? tm[1] : tail; res = tm ? tm[2] : "";
+      }
+      var n = li + 1;
+      if (!w || !bl) bad = "Line " + n + " needs a challenger and a challenged player.";
+      else if (!res || !canonResult(res)) bad = "Line " + n + " needs a result such as 1-0, 0.5-0.5, 0-1, 1-0X, 0X-1 or 0X-0X.";
+      else if (!gameLink) bad = "Line " + n + " needs a game link starting with https://.";
+      else pairs.push({ a: slugName(bl), b: slugName(w), aName: bl, bName: w, aRank: null, bRank: null,
+        board: String(pairs.length + 1), result: canonResult(res), link: gameLink, kind: "imported" });
     });
+    if (bad) { toast(bad, true); return; }
     if (!pairs.length) { toast("Add at least one game, one per line.", true); return; }
     act(async function () {
       await db.doc("pairings/round-" + n).set({ round: n, imported: true, manual: true, importedAt: Date.now(), pairs: pairs });
@@ -615,14 +722,68 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     });
     return order;
   }
+  /* The new ladder made by "Apply results" is saved with the round's pairings as a list of player ids. */
+  function appliedLadder(sv) {
+    var byId = {};
+    players().forEach(function (p) { byId[p.id] = p; });
+    var out = [], seen = {};
+    (sv.nextLadder || []).forEach(function (id) { if (byId[id] && !seen[id]) { seen[id] = 1; out.push(Object.assign({}, byId[id])); } });
+    players().forEach(function (p) { if (!seen[p.id]) out.push(Object.assign({}, p)); });
+    return out;
+  }
+  function applyResults() {
+    var sv = pairingsDocs.find(function (x) { return x.round === round(); });
+    act(async function () {
+      if (!sv) throw new Error("Save pairings for this round first.");
+      var bad = roundProblems(sv);
+      if (bad.length) throw new Error("Can't apply results yet. " + bad.slice(0, 4).join("; ") + ".");
+      await db.doc("pairings/round-" + round()).update({ nextLadder: ladderAfter(sv).map(function (p) { return p.id; }), appliedAt: Date.now() });
+    }, "Results applied. The new ladder is ready.");
+  }
+  function exportNewLadder(sv) {
+    if (!downloads) return;
+    function q(x) { x = String(x); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }
+    var lines = ["Rank,Name,Previous rank"];
+    appliedLadder(sv).forEach(function (p, i) { lines.push([i + 1, q(p.name), indexOf(p.id) + 1].join(",")); });
+    downloads.save({ filename: "new-ladder-round-" + round() + ".csv", data: lines.join("\n") })
+      .then(function () { toast("New ladder exported."); })
+      .catch(function (e) { if (!e || e.code !== "declined") toast("The file could not be saved here.", true); });
+  }
+  function roundPairingsBlock() {
+    var saved = pairingsDocs.find(function (x) { return x.round === round(); });
+    if (!saved) return h("p", { class: "small muted", text: "No pairings are saved for this round yet. Use Run Pairings, then save a set." });
+    var pairs = saved.pairs || [];
+    var kids = [h("h3", { text: "Pairings and results" }),
+      pairs.length ? h("ol", { class: "feed", style: "list-style:none;padding:0" }, pairs.map(function (p, i) { return pairLi(p, i, true); }))
+        : h("p", { class: "muted", text: "No games in the saved pairings." }),
+      pairs.length ? h("p", { class: "small muted", text: "White is the challenger. Enter the game link first, then the result. Results of 1-0, 0-1 and 0.5-0.5 need a link." }) : null];
+    if (saved.byes && saved.byes.length) kids.push(h("p", { class: "small muted", text: "On a bye: " + saved.byes.map(nameOfId).join(", ") + "." }));
+    if (pairs.length) {
+      kids.push(h("div", { class: "row" }, h("button", { disabled: busy, onclick: applyResults }, saved.nextLadder ? "Apply results again" : "Apply results")));
+      if (saved.nextLadder) {
+        var nl = appliedLadder(saved), moved = [];
+        nl.forEach(function (p, i) { var was = indexOf(p.id); if (was !== i) moved.push(p.name + ": #" + (was + 1) + " to #" + (i + 1)); });
+        kids.push(h("h3", { text: "New ladder" }));
+        kids.push(h("p", { class: "small muted", text: moved.length ? moved.length + (moved.length === 1 ? " player moves." : " players move.") + " Start next round makes this the current ladder." : "No one moves. Start next round keeps the current order." }));
+        kids.push(h("ol", { class: "feed", style: "padding:0;list-style:none" }, nl.map(function (p, i) {
+          var was = indexOf(p.id), diff = was - i;
+          return h("li", {}, h("div", { class: "vs" }, h("span", { class: "num", text: "#" + (i + 1) + "  " }), h("b", { text: p.name })),
+            h("span", { class: "meta num", text: diff > 0 ? "up " + diff : diff < 0 ? "down " + (-diff) : "no change" }));
+        })));
+        if (downloads) kids.push(h("div", { class: "row" }, h("button", { class: "ghost", onclick: function () { exportNewLadder(saved); } }, "Export new ladder")));
+      } else kids.push(h("p", { class: "small muted", text: "Apply results once every game has a result (and a link where needed) to build the new ladder." }));
+    }
+    return h("div", { style: "display:flex;flex-direction:column;gap:10px" }, kids);
+  }
   function setResult(i, value) {
     var saved = pairingsDocs.find(function (x) { return x.round === round(); });
     if (!saved) return;
     act(async function () {
       var pairs = (saved.pairs || []).map(function (p) { return Object.assign({}, p); });
       if (!pairs[i]) throw new Error("That game is no longer in the pairings.");
+      if (needsLink(value) && !/^https:\/\//i.test(pairs[i].link || "")) throw new Error("Add the game link first. Results of 1-0, 0-1 and 0.5-0.5 need one.");
       pairs[i].result = value;
-      await db.doc("pairings/round-" + round()).update({ pairs: pairs });
+      await db.doc("pairings/round-" + round()).update({ pairs: pairs, nextLadder: null });
     }, value ? "Result saved." : "Result cleared.");
   }
   function setGameUrl(i, url) {
@@ -632,8 +793,9 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     act(async function () {
       var pairs = (saved.pairs || []).map(function (p) { return Object.assign({}, p); });
       if (!pairs[i]) throw new Error("That game is no longer in the pairings.");
+      if (!url && needsLink(pairs[i].result)) throw new Error("This result needs a game link. Clear the result first to remove the link.");
       pairs[i].link = url;
-      await db.doc("pairings/round-" + round()).update({ pairs: pairs });
+      await db.doc("pairings/round-" + round()).update({ pairs: pairs, nextLadder: null });
     }, url ? "Game link saved." : "Game link removed.");
   }
   function exportPairings(shown) {
@@ -688,18 +850,24 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     act(async function () {
       var d = derive(), r = round();
       var saved = pairingsDocs.find(function (x) { return x.round === r; });
+      var bad = roundProblems(saved);
+      if (bad.length) throw new Error("Can't start the next round. " + bad.slice(0, 4).join("; ") + ".");
+      if (saved && (saved.pairs || []).length && !saved.nextLadder) throw new Error("Apply results first, so the new ladder is ready.");
+      var nc = parseUtc(nextCutoff);
+      if (nc !== null && isNaN(nc)) throw new Error("Enter the challenge cutoff as a date and time, or leave it empty.");
       var curCh = currentChallengers(d);
-      var res = applyInactivity(saved ? ladderAfter(saved) : players().map(function (q) { return Object.assign({}, q); }), curCh);
+      var res = applyInactivity(saved ? (saved.nextLadder ? appliedLadder(saved) : ladderAfter(saved)) : players().map(function (q) { return Object.assign({}, q); }), curCh);
       var chIds = Array.from(curCh);
       if (saved) await db.doc("pairings/round-" + r).update({ challengers: chIds });
       else await db.doc("pairings/round-" + r).set({ round: r, challengers: chIds, pairs: [], start: currentStart(), savedAt: Date.now() });
-      await db.doc("ladder/current").update({ round: r + 1, players: res.players });
+      await db.doc("ladder/current").update({ round: r + 1, players: res.players, roundStartedAt: Date.now(), cutoff: nc });
+      nextCutoff = ""; cutoffText = null;
       for (var k = 0; k < res.events.length; k++) {
         var ev = res.events[k];
         await db.doc("inactivity/r" + r + "-" + ev.playerId).set(Object.assign({ at: Date.now() }, ev));
       }
       for (var i = 0; i < challenges.length; i++) await db.doc("challenges/" + challenges[i].id).delete();
-      proposal = null;
+      attempts = [];
     }, "Round " + (round() + 1) + " started. Results and inactivity are applied to the ladder, and bye requests and challenges are cleared.");
   }
   function saveSettings() {
@@ -841,12 +1009,35 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         h("button", { class: "ghost", onclick: function () { ask(null); } }, "Back")));
   }
 
+  var SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  var MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  function themeNow() {
+    var t = document.documentElement.getAttribute("data-theme");
+    if (t === "dark" || t === "light") return t;
+    try { return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch (e) { return "light"; }
+  }
+  function setTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem("chess-ladder-theme", t); } catch (e) {}
+    render();
+  }
+  try { var savedTheme = localStorage.getItem("chess-ladder-theme"); if (savedTheme === "dark" || savedTheme === "light") document.documentElement.setAttribute("data-theme", savedTheme); } catch (e) {}
+  function themeToggle() {
+    var cur = themeNow();
+    function btn(mode, svg, label) {
+      var b = h("button", { type: "button", "aria-label": label, title: label, "aria-pressed": String(cur === mode), onclick: function () { setTheme(mode); } });
+      b.innerHTML = svg;
+      return b;
+    }
+    return h("div", { class: "theme", role: "group", "aria-label": "Colour theme" }, btn("light", SUN, "Light mode"), btn("dark", MOON, "Dark mode"));
+  }
   function masthead() {
     return h("header", { class: "masthead" },
       h("div", { class: "board-strip", "aria-hidden": "true" }),
       h("div", { class: "title-row" },
         h("h1", { text: "4545 Ladder" }),
-        ladder ? h("span", { class: "round-pill num", text: "Round " + round() }) : null),
+        ladder ? h("span", { class: "round-pill num", text: "Round " + round() }) : null,
+        themeToggle()),
       h("p", { class: "small" }, "Ladder rules can be found ", h("a", { href: "https://docs.google.com/document/d/1991lFK5vCeomHYMPDub8e4a73sJQw5sCp8BLpcbJnxU/edit?usp=sharing", target: "_blank", rel: "noopener" }, "here"), "."),
       null);
   }
@@ -869,7 +1060,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function meCard(me, mi, d) {
     var immune = isImmune(me, d), onBye = d.byeNow.has(me.id), mine = d.pending.filter(function (c) { return c.challengerId === me.id || c.targetId === me.id; });
     var chips = [];
-    var revoked = !!me.immune && d.revoked.has(me.id);
+    var revoked = hasImmunity(me) && d.revoked.has(me.id);
     if (immune) chips.push(chip("Immune", "immune"));
     if (revoked) chips.push(chip("Immunity revoked", ""));
     if (onBye) chips.push(chip("Bye requested", "bye"));
@@ -885,22 +1076,20 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     if (onBye) {
       byeBlock = confirmKey === "cancelbye"
         ? confirmBox("Cancel your bye request for this round?", "Cancel request", cancelBye)
-        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Bye requested for round " + round() }), h("span", { class: "muted small", text: "The organizer can see your request. You can't send challenges while it stands." })),
+        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Bye requested for round " + round() }), h("span", { class: "muted small", text: "The moderator can see your request. You can't send challenges while it stands." })),
             h("button", { class: "ghost", disabled: busy || !canWrite, onclick: function () { ask("cancelbye"); } }, "Cancel request"));
     } else {
       byeBlock = confirmKey === "bye"
         ? confirmBox("Request a bye for round " + round() + "? You won't be able to send challenges this round.", "Request bye", takeBye)
-        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Request a bye" }), h("span", { class: "muted small", text: "Sit out this round. The organizer sees who has asked." })),
+        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Request a bye" }), h("span", { class: "muted small", text: "Sit out this round. The moderator sees who has asked." })),
             h("button", { disabled: busy || !canWrite, onclick: function () { ask("bye"); } }, "Request a bye"));
     }
     acts.push(byeBlock);
 
     // Revoke immunity
     if (immune) {
-      acts.push(confirmKey === "revoke"
-        ? confirmBox("Revoke your immunity? You can restore it from this page later.", "Revoke immunity", revokeImmunity, true)
-        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Revoke your immunity" }), h("span", { class: "muted small", text: "Gives up your immune status. You can restore it later." })),
-            h("button", { class: "danger", disabled: busy || !canWrite, onclick: function () { ask("revoke"); } }, "Revoke immunity")));
+      acts.push(h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Revoke your immunity" }), h("span", { class: "muted small", text: "Gives up your immune status. You can restore it later." })),
+            h("button", { class: "danger", disabled: busy || !canWrite, onclick: revokeImmunity }, "Revoke immunity")));
     } else if (revoked) {
       acts.push(h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Restore your immunity" }), h("span", { class: "muted small", text: "Becomes immune again when pairings are run." })),
         h("button", { disabled: busy || !canWrite, onclick: restoreImmunity }, "Restore immunity")));
@@ -914,7 +1103,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         var l = prefList(me.id, d);
         return l.length ? h("div", { class: "row", style: "justify-content:space-between" },
           h("p", { class: "small", style: "margin:0;flex:1 1 200px", text: "Your choices: " + l.map(function (c, i) { return (i + 1) + ". " + c.targetName + (playedInARow(me.id, c.targetId) ? " (can't repeat)" : ""); }).join("   ") }),
-          h("button", { class: "ghost", disabled: busy || !canWrite, onclick: clearChallenges }, "Clear all challenges")) : null;
+          h("button", { class: "ghost", disabled: busy || !canChal(), onclick: clearChallenges }, "Clear all challenges")) : null;
       })(),
       h("div", { class: "actions" }, acts));
   }
@@ -937,6 +1126,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       var chips = [];
       if (isMe) chips.push(chip("You", "you"));
       if (isImmune(p, d)) chips.push(chip("Immune", "immune"));
+      else if (hasImmunity(p) && d.revoked.has(p.id)) chips.push(chip("Immunity revoked", ""));
       var inS = standingStreak(p.id);
       if (inS >= 3) chips.push(chip(inactiveLabel(inS), "inactive"));
       if (d.byeNow.has(p.id)) chips.push(chip("Bye requested", "bye"));
@@ -947,16 +1137,17 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         var why = mineIdx >= 0 ? null : whyNot(me, p, d);
         if (why) {
           act.push(h("span", { class: "why", text: why }));
+          if (mineIdx >= 0) act.push(h("button", { class: "link", disabled: busy || !canChal(), onclick: function () { setPreference(p.id, 0); } }, "Remove"));
         } else {
           var nOpts = isNewPlayer(me.id) ? mi : Math.min(maxJump(), mi);
           var opts = [h("option", { value: "0", selected: mineIdx < 0 }, "No challenge")];
           for (var k = 1; k <= nOpts; k++) opts.push(h("option", { value: String(k), selected: mineIdx + 1 === k }, ordinal(k) + " choice"));
-          act.push(h("select", { class: "prefsel", id: "pref-" + p.id, "aria-label": "Your choice for " + p.name, disabled: busy || !canWrite,
+          act.push(h("select", { class: "prefsel", id: "pref-" + p.id, "aria-label": "Your choice for " + p.name, disabled: busy || !canChal(),
             onchange: function (e) { setPreference(p.id, Number(e.target.value)); } }, opts));
         }
       }
-      if (isAdmin && ladder.source === "sheet" && p.immune && d.revoked.has(p.id)) act.push(h("button", { class: "link", disabled: busy, onclick: function () { toggleImmunity(p); }, title: "Organizer: undo this player's revoked immunity" }, "Restore immunity"));
-      else if (isAdmin && ladder.source !== "sheet") act.push(h("button", { class: "link", disabled: busy, onclick: function () { toggleImmunity(p); }, title: "Organizer: turn immunity on or off" }, p.immune ? "Remove immunity" : "Grant immunity"));
+      if (isAdmin && hasImmunity(p) && d.revoked.has(p.id)) act.push(h("button", { class: "link", disabled: busy, onclick: function () { toggleImmunity(p); }, title: "Moderator: undo this player's revoked immunity" }, "Restore immunity"));
+      else if (isAdmin && ladder.source !== "sheet" && !earnedImmune().set) act.push(h("button", { class: "link", disabled: busy, onclick: function () { toggleImmunity(p); }, title: "Moderator: turn immunity on or off" }, p.immune ? "Remove immunity" : "Grant immunity"));
       return h("li", { class: (inReach ? "reach " : "") + (isMe ? "me" : "") },
         h("div", { class: "rk num" }, "#" + (i + 1), delta),
         h("div", { class: "nm" }, h("span", { text: p.name }), chips.length ? h("div", { class: "chips" }, chips) : null),
@@ -965,7 +1156,8 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     return h("section", { "aria-label": "Ladder" },
       h("div", { class: "panel", style: "padding:0;border:none;background:transparent;gap:10px" },
         h("h2", {}, "The ladder", h("span", { class: "muted small num", text: ps.length + " players" })),
-        h("p", { class: "rules", text: "Challenge anyone up to " + maxJump() + " spots above you, immune or not. New players can challenge anyone above them. Immunity is checked when pairings are run, so a player can still revoke it first. Request a bye if you need to sit out a round." }),
+        cutoffNotice(),
+        h("p", { class: "rules", text: "Challenge anyone up to " + maxJump() + " spots above you, immune or not. New players can challenge anyone above them. A player who was challenged last round and has someone above they can legally challenge is immune. Immunity is checked when pairings are run, so a player can still revoke it first. Request a bye if you need to sit out a round." }),
         me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : h("p", { class: "small muted", text: "Choose your name above to see who you can challenge." }),
         h("ol", { class: "ladder", style: "list-style:none" }, items)));
   }
@@ -1068,7 +1260,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         return h("li", {}, h("div", { class: "vs" }, h("b", { text: e.name }), h("div", { class: "meta", text: "Removed when round " + e.round + " ended, from #" + e.rank })),
           h("span", { class: "meta", text: new Date(e.at || Date.now()).toLocaleDateString(undefined, { month: "short", day: "numeric" }) }));
       })) : h("p", { class: "muted", text: "No one has been removed." }),
-      strikes.length ? h("details", {}, h("summary", { text: "Recent strikes" }),
+      strikes.length ? h("details", {}, h("summary", { text: "Recent Strikes" }),
         h("ul", { class: "rules-list" }, strikes.map(function (e) { return h("li", { text: e.name + ": strike " + e.strike + " after round " + e.round }); }))) : null,
       ladder && ladder.source === "sheet" ? h("p", { class: "small muted", text: "Strikes and removals change the ladder on this page. Update your sheet to match, or the next sync brings removed players back." }) : null
     ];
@@ -1166,6 +1358,81 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       })));
   }
 
+  /* ---------- cards ---------- */
+  var YELLOW_ROUNDS = 6;
+  function addCard() {
+    var c = cardDraft, pl = players()[indexOf(c.playerId)];
+    act(async function () {
+      if (!pl) throw new Error("Choose a player.");
+      var r = Math.floor(Number(c.round || round()));
+      if (!(r >= 1)) throw new Error("Enter the round the card was earned in.");
+      await db.collection("cards").add({ playerId: pl.id, name: pl.name, type: c.type === "red" ? "red" : "yellow", round: r, note: String(c.note || "").trim().slice(0, 200), at: Date.now() });
+      cardDraft = { playerId: "", type: c.type, round: "", note: "" };
+    }, "Card recorded.");
+  }
+  function cardsSection() {
+    var cur = round();
+    var sorted = cardDocs.slice().sort(function (a, b) { return (a.type === b.type ? 0 : a.type === "red" ? -1 : 1) || (b.round || 0) - (a.round || 0); });
+    var c = cardDraft;
+    var form = h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+      h("div", { class: "row" },
+        h("label", { class: "field", for: "card-player" }, "Player", h("select", { id: "card-player", onchange: function (e) { cardDraft.playerId = e.target.value; } },
+          h("option", { value: "" }, "Choose a player"),
+          players().map(function (p, i) { return h("option", { value: p.id, selected: p.id === c.playerId }, "#" + (i + 1) + "  " + p.name); }))),
+        h("label", { class: "field", for: "card-type" }, "Card", h("select", { id: "card-type", onchange: function (e) { cardDraft.type = e.target.value; } },
+          h("option", { value: "yellow", selected: c.type === "yellow" }, "Yellow"), h("option", { value: "red", selected: c.type === "red" }, "Red"))),
+        h("label", { class: "field", for: "card-round" }, "Round earned", h("input", { id: "card-round", type: "number", min: "1", placeholder: String(cur), value: c.round, oninput: function (e) { cardDraft.round = e.target.value; } }))),
+      h("label", { class: "field", for: "card-note" }, "Note (optional)", h("input", { id: "card-note", type: "text", maxlength: "200", value: c.note, style: "font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;max-width:100%", oninput: function (e) { cardDraft.note = e.target.value; } })),
+      h("div", { class: "row" }, h("button", { disabled: busy, onclick: addCard }, "Record card")));
+    return h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+      h("p", { class: "small muted", text: "Cards are entered by hand. A yellow card lasts " + YELLOW_ROUNDS + " rounds: one earned in round 20 covers rounds 21 to 26 and falls off in round 27. Nothing is removed automatically. A yellow card is highlighted once its round arrives. Red cards stay until you remove them." }),
+      form,
+      sorted.length ? h("ul", { class: "feed" }, sorted.map(function (k) {
+        var yellow = k.type !== "red", off = (k.round || 0) + YELLOW_ROUNDS + 1, due = yellow && cur >= off;
+        return h("li", { style: due ? "background:var(--bye-bg);border-radius:6px;padding:6px 8px" : "" },
+          h("div", { class: "vs" }, h("b", { text: k.name }), " ", chip(yellow ? "Yellow" : "Red", yellow ? "bye" : "inactive"),
+            h("div", { class: "meta", text: "Earned round " + k.round + (yellow ? ". Falls off in round " + off + (due ? ". Time to remove it." : ".") : ".") + (k.note ? " " + k.note : "") })),
+          h("button", { class: "link", disabled: busy, onclick: function () { act(function () { return db.doc("cards/" + k.id).delete(); }, "Card removed."); } }, "Remove"));
+      })) : h("p", { class: "muted", text: "No cards recorded." }));
+  }
+  function addPlayer() {
+    var nm = String(newPlayerName || "").trim();
+    act(async function () {
+      if (!nm) throw new Error("Enter the player's name.");
+      var id = slugName(nm);
+      if (indexOf(id) >= 0) throw new Error(nm + " is already on the ladder.");
+      await db.doc("ladder/current").update({ players: players().concat([{ id: id, name: nm, immune: false }]) });
+      newPlayerName = "";
+    }, nm + " added to the bottom of the ladder.");
+  }
+  function removePlayer() {
+    var pl = players()[indexOf(removeId)];
+    act(async function () {
+      if (!pl) throw new Error("Choose a player to remove.");
+      await db.doc("ladder/current").update({ players: players().filter(function (q) { return q.id !== pl.id; }) });
+      var mine = challenges.filter(function (c) { return c.challengerId === pl.id || c.targetId === pl.id; });
+      for (var i = 0; i < mine.length; i++) await db.doc("challenges/" + mine[i].id).delete();
+      removeId = ""; confirmKey = null;
+    }, pl.name + " removed from the ladder. Their cards are kept.");
+  }
+  function addPlayerSection() {
+    var rp = players()[indexOf(removeId)];
+    return h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+      h("p", { class: "small muted", text: "New players go to the bottom of the ladder and, as new players, can challenge anyone above them." + (ladder && ladder.source === "sheet" ? " Add them to your sheet too, or the next sync removes them." : "") }),
+      h("div", { class: "row" },
+        h("label", { class: "field", for: "new-player" }, "Lichess username", h("input", { id: "new-player", type: "text", value: newPlayerName, style: "font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;max-width:100%", oninput: function (e) { newPlayerName = e.target.value; } })),
+        h("button", { disabled: busy, onclick: addPlayer }, "Add to ladder")),
+      h("h3", { text: "Remove a player" }),
+      h("p", { class: "small muted", text: "Everyone below moves up one spot. Any open challenges involving them are cleared. Their yellow and red cards stay on record." + (ladder && ladder.source === "sheet" ? " Remove them from your sheet too, or the next sync brings them back." : "") }),
+      confirmKey === "removeplayer" && rp
+        ? confirmBox("Remove " + rp.name + " (#" + (indexOf(rp.id) + 1) + ") from the ladder?", "Remove", removePlayer, true)
+        : h("div", { class: "row" },
+            h("label", { class: "field", for: "rem-player" }, "Player", h("select", { id: "rem-player", onchange: function (e) { removeId = e.target.value; render(); } },
+              h("option", { value: "" }, "Choose a player"),
+              players().map(function (p, i) { return h("option", { value: p.id, selected: p.id === removeId }, "#" + (i + 1) + "  " + p.name); }))),
+            h("button", { class: "danger", disabled: busy || !rp, onclick: function () { ask("removeplayer"); } }, "Remove from ladder")));
+  }
+
   function roundDetails(doc) {
     var pairs = doc.pairs || [];
     return h("details", { open: openRounds.has(doc.round), ontoggle: function (e) { if (e.target.open) openRounds.add(doc.round); else openRounds.delete(doc.round); } },
@@ -1191,84 +1458,168 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       importProgress ? h("p", { class: "small muted", text: importProgress }) : null,
       past.length ? h("div", { style: "display:flex;flex-direction:column;gap:8px" }, past.map(roundDetails)) : h("p", { class: "muted", text: "No past rounds saved yet." }),
       h("details", { open: manualOpen, ontoggle: function (e) { manualOpen = e.target.open; } },
-        h("summary", { text: "Enter a past round by hand" }),
+        h("summary", { text: "Enter a Past Round by Hand" }),
         h("div", { style: "display:flex;flex-direction:column;gap:10px;padding-top:8px" },
-          h("p", { class: "small muted", text: "One game per line: challenger (white), challenged (black) and, if you like, the result. Separate them with commas or write the names around \"vs\"." }),
+          h("p", { class: "small muted", text: "One game per line: challenger (white), challenged (black), the result and a link to the game (https://...). All four are required. Separate them with commas, or write the names around \"vs\" followed by the result and the link." }),
           h("label", { class: "field", for: "man-round" }, "Round number", h("input", { id: "man-round", type: "number", min: "1", value: manual.round, oninput: function (e) { manual.round = e.target.value; } })),
-          h("label", { class: "field", for: "man-text" }, "Games", h("textarea", { id: "man-text", placeholder: "fork2020, UpGoerFive, 1-0\njcarmody vs fwcj68", oninput: function (e) { manual.text = e.target.value; } }, manual.text)),
+          h("label", { class: "field", for: "man-text" }, "Games", h("textarea", { id: "man-text", placeholder: "fork2020, UpGoerFive, 1-0, https://lichess.org/abc123\njcarmody vs fwcj68 0.5-0.5 https://lichess.org/xyz789", oninput: function (e) { manual.text = e.target.value; } }, manual.text)),
           h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: saveManual }, "Save round"))))
     ];
     return h("div", { style: "display:flex;flex-direction:column;gap:10px" }, kids);
   }
 
+  function pairLi(p, i, editable) {
+    var meta = function () {
+      var t = p.kind === "manual" ? "Set by the moderator." : p.bName + " challenged " + p.aName + (p.choice ? " (their " + ordinal(p.choice) + " choice)." : ".");
+      return t;
+    };
+    return h("li", { style: p.repeatRound ? "background:var(--bye-bg);border-radius:6px;padding:6px 8px" : "" },
+      h("div", { class: "vs" }, h("span", { class: "meta num", text: "Board " + (i + 1) + "  " }), h("b", { text: p.bName }), " (#" + p.bRank + ") vs ", h("b", { text: p.aName }), " (#" + p.aRank + ")",
+        p.repeatRound ? [" ", chip("Repeat of round " + p.repeatRound, "bye")] : null,
+        p.kind === "manual" ? [" ", chip("Manual", "")] : null,
+        h("div", { class: "meta", text: meta() })),
+      editable ? h("select", { class: "prefsel", id: "res-" + i, "aria-label": "Result for board " + (i + 1), disabled: busy,
+        onchange: function (e) { setResult(i, e.target.value); } },
+        RESULT_OPTIONS.map(function (o) { return h("option", { value: o[0], selected: o[0] === canonResult(p.result) }, o[1]); })) : null,
+      editable ? h("input", { type: "url", class: "urlin", id: "url-" + i, placeholder: "Game URL, e.g. https://lichess.org/...", value: p.link || "", "aria-label": "Game URL for board " + (i + 1), disabled: busy,
+        onchange: function (e) { setGameUrl(i, e.target.value.trim()); } }) : null);
+  }
+  function attemptView(att, saved, isLast) {
+    var res = att.res, ps = players(), taken = new Set();
+    res.pairs.forEach(function (p) { taken.add(p.a); taken.add(p.b); });
+    var kids = [];
+    kids.push(res.pairs.length
+      ? h("ol", { class: "feed", style: "list-style:none;padding:0" }, res.pairs.map(function (p, i) { return pairLi(p, i, false); }))
+      : h("p", { class: "muted", text: "No pairs in this set." }));
+    if (res.unpaired.length) {
+      kids.push(h("h3", { text: "Challenged but not paired" }));
+      res.unpaired.forEach(function (u) {
+        var key = att.n + ":" + u.id, uPos = indexOf(u.id);
+        var opts = ps.filter(function (q, j) { return j < uPos && !taken.has(q.id) && !att.res.byes.includes(q.id); });
+        var pickId = manualPick[key] && opts.some(function (q) { return q.id === manualPick[key]; }) ? manualPick[key] : (opts[0] && opts[0].id) || "";
+        manualPick[key] = pickId;
+        kids.push(h("div", { class: "preview", style: "border-left:4px solid var(--warn)" },
+          h("b", { text: u.name + " (#" + u.rank + ") did not get a pairing" }),
+          h("span", { text: "Challenged: " + (u.choices.length ? u.choices.join(", ") : "nobody") }),
+          h("span", { text: "Challenged by: " + (u.by.length ? u.by.join(", ") : "nobody") }),
+          h("span", { class: "muted", text: "Why: " + u.reasons.join("; ") + "." }),
+          opts.length ? h("div", { class: "row" },
+            h("label", { class: "field", for: "man-" + key }, "Pair " + u.name + " with",
+              h("select", { id: "man-" + key, onchange: function (e) { manualPick[key] = e.target.value; } },
+                opts.map(function (q) {
+                  var rr = recentPairs().get(pairKey(u.id, q.id)), tag = playedInARow(u.id, q.id) ? " (played last round)" : rr ? " (repeat of round " + rr + ")" : "";
+                  return h("option", { value: q.id, selected: q.id === pickId }, "#" + (indexOf(q.id) + 1) + "  " + q.name + tag);
+                }))),
+            h("button", { class: "ghost", disabled: busy, onclick: function () {
+              var f = att.res.forced.concat([{ c: u.id, t: manualPick[key] }]);
+              attemptSeq++;
+              attempts.push({ n: attemptSeq, res: computePairings(derive(), f) });
+              render();
+            } }, "Pair and run again")) : h("span", { class: "muted", text: "Nobody above them is free to pair with." })));
+      });
+    }
+    if (res.byes.length) kids.push(h("p", { class: "small muted", text: "On a bye: " + res.byes.map(nameOfId).join(", ") + "." }));
+    if (res.others.length) kids.push(h("p", { class: "small muted", text: "No challenge, not paired: " + res.others.map(nameOfId).join(", ") + "." }));
+    if (confirmKey === "savepair-" + att.n) kids.push(confirmBox("Replace the pairings already saved for round " + round() + " with attempt " + att.n + "? The other sets are discarded.", "Save this set", function () { savePairings(att); }));
+    else kids.push(h("div", { class: "row" }, h("button", { disabled: busy, onclick: function () { if (saved) ask("savepair-" + att.n); else savePairings(att); } }, "Save this set")));
+    return h("details", { open: openAttempts.has(att.n) || (isLast && !openAttempts.has("closed-" + att.n)), ontoggle: function (e) {
+        if (e.target.open) { openAttempts.add(att.n); openAttempts.delete("closed-" + att.n); } else { openAttempts.delete(att.n); openAttempts.add("closed-" + att.n); }
+      } },
+      h("summary", { text: "Pairings Attempt " + att.n + (att.manual ? " (Manual)" : "") + " (" + res.pairs.length + (res.pairs.length === 1 ? " game" : " games") + (res.unpaired.length ? ", " + res.unpaired.length + " not paired" : "") + ")" }),
+      h("div", { style: "display:flex;flex-direction:column;gap:10px;padding-top:8px" }, kids));
+  }
+  var openAttempts = new Set(), manualPairOpen = false, manualDraft = { c: "", t: "" }, manualList = [];
+  /* Manual pairings only check for repeats: a game from the last three rounds is flagged, and a back-to-back rematch is refused. */
+  function manualPairObj(c, t) {
+    var ps = players(), ci = indexOf(c), ti = indexOf(t);
+    return { a: t, b: c, aName: ps[ti].name, bName: ps[ci].name, aRank: ti + 1, bRank: ci + 1, kind: "manual", choice: null, repeatRound: recentPairs().get(pairKey(c, t)) || null };
+  }
+  function addManualPair() {
+    var c = manualDraft.c, t = manualDraft.t;
+    if (!c || !t) { toast("Choose both players.", true); return; }
+    if (c === t) { toast("Choose two different players.", true); return; }
+    if (manualList.some(function (m) { return m.c === c || m.t === c || m.c === t || m.t === t; })) { toast("A player can only be in one manual pairing.", true); return; }
+    if (playedInARow(c, t)) { toast(nameOfId(c) + " and " + nameOfId(t) + " played each other last round, so they can't be paired again yet.", true); return; }
+    manualList.push({ c: c, t: t });
+    manualDraft = { c: "", t: "" };
+    render();
+  }
+  function manualSection(d) {
+    var ps = players();
+    var used = new Set();
+    manualList.forEach(function (m) { used.add(m.c); used.add(m.t); });
+    var opts = function (cur) {
+      return [h("option", { value: "" }, "Choose a player")].concat(ps.filter(function (q) { return !used.has(q.id); }).map(function (q) {
+        return h("option", { value: q.id, selected: q.id === cur }, "#" + (indexOf(q.id) + 1) + "  " + q.name);
+      }));
+    };
+    var kids = [
+      h("p", { class: "small muted", text: "Enter games by hand. Only repeats are checked: a repeat of a game from the last three rounds is highlighted, and a rematch of last round's game isn't allowed. Nothing else is checked, so reach, immunity and byes can be overridden. The first player is the challenger (white)." }),
+      h("div", { class: "row" },
+        h("label", { class: "field", for: "mp-c" }, "Challenger (white)", h("select", { id: "mp-c", onchange: function (e) { manualDraft.c = e.target.value; } }, opts(manualDraft.c))),
+        h("label", { class: "field", for: "mp-t" }, "Opponent (black)", h("select", { id: "mp-t", onchange: function (e) { manualDraft.t = e.target.value; } }, opts(manualDraft.t))),
+        h("button", { class: "ghost", disabled: busy, onclick: addManualPair }, "Add Pairing"))
+    ];
+    if (manualList.length) {
+      kids.push(h("ul", { class: "feed" }, manualList.map(function (m, i) {
+        var o = manualPairObj(m.c, m.t);
+        return h("li", { style: o.repeatRound ? "background:var(--bye-bg);border-radius:6px;padding:6px 8px" : "" },
+          h("div", { class: "vs" }, h("b", { text: o.bName }), " (#" + o.bRank + ") vs ", h("b", { text: o.aName }), " (#" + o.aRank + ")", o.repeatRound ? [" ", chip("Repeat of round " + o.repeatRound, "bye")] : null),
+          h("button", { class: "link", onclick: function () { manualList.splice(i, 1); render(); } }, "Remove"));
+      })));
+      kids.push(h("div", { class: "row" },
+        h("button", { disabled: busy, onclick: function () {
+          var pairs = manualList.map(function (m) { return manualPairObj(m.c, m.t); }).sort(function (x, y) { return x.aRank - y.aRank; });
+          var inSet = new Set(); pairs.forEach(function (q) { inSet.add(q.a); inSet.add(q.b); });
+          var byes = players().filter(function (q) { return d.byeNow.has(q.id); }).map(function (q) { return q.id; });
+          attemptSeq++;
+          attempts.push({ n: attemptSeq, manual: true, res: { pairs: pairs, unpaired: [], byes: byes, others: [], forced: manualList.map(function (m) { return { c: m.c, t: m.t }; }) } });
+          manualList = [];
+          render();
+        } }, "Add as a Set"),
+        h("button", { class: "ghost", onclick: function () { manualList = []; render(); } }, "Clear List")));
+    }
+    return h("details", { open: manualPairOpen, ontoggle: function (e) { manualPairOpen = e.target.open; } },
+      h("summary", { text: "Manual Pairings" }), h("div", { style: "display:flex;flex-direction:column;gap:10px;padding-top:8px" }, kids));
+  }
   function pairingsSection(d) {
     var saved = pairingsDocs.find(function (x) { return x.round === round(); });
-    var shown = proposal || (saved ? { pairs: saved.pairs || [], byes: saved.byes || [], unpaired: [], others: [] } : null);
     var nChal = new Set(d.pending.map(function (c) { return c.challengerId; })).size;
     var kids = [
       h("details", {},
-        h("summary", { text: "How pairings are chosen" }),
+        h("summary", { text: "How Pairings Are Chosen" }),
         h("ul", { class: "rules-list" },
           h("li", { text: "Players who requested a bye are not paired." }),
-          h("li", { text: "Only challenges are paired. Someone who doesn't challenge can be left unpaired." }),
+          h("li", { text: "Only requested challenges are paired. Nobody is given an opponent they didn't ask for." }),
           h("li", { text: "Players rank their challenges. Each gets their highest choice that is still available." }),
-          h("li", { text: "Challengers are handled from the top of the ladder down, so when several players want the same opponent, the higher-ranked one gets them." }),
-          h("li", { text: "An immune player's challenge counts as " + IMMUNE_WEIGHT + " spots higher on the ladder." }),
-          h("li", { text: "An immune player who hasn't revoked it can't be paired as the challenged player." }),
-          h("li", { text: "If none of a player's challenges can be matched, the tool offers another free player within " + maxJump() + " spots above and marks it as reassigned." }),
+          h("li", { text: "Players who earned immunity are handled first, higher ranked first, even if they revoked it. So an immune player gets a contested opponent unless a higher ranked immune player wants the same one. Everyone else follows from the top of the ladder down." }),
+          h("li", { text: "A player whose immunity is still active can't be paired as the challenged player. A player who revoked it can be, but only if none of their own challenges is available." }),
           h("li", { text: "New players (not on last round's starting ladder) may be paired with anyone above them." }),
           h("li", { text: "Two players can't be paired twice in a row. They can meet again once one of them has played someone else." }),
-          h("li", { text: "Pairings from the last three rounds are avoided when another option exists. A repeat is marked." }))),
-      h("p", { class: "small muted", text: nChal + (nChal === 1 ? " player has" : " players have") + " challenged this round." + (proposal ? " Run again to include later changes." : saved ? " Pairings are saved for this round." : "") })
+          h("li", { text: "Pairings from the last three rounds are avoided when another option exists. A repeat is highlighted." }),
+          h("li", { text: "A player who challenged but got no pairing is listed with who they challenged and who challenged them. You can pick an opponent for them and run again with that pairing fixed. Each run is a new set below the others, and saving one set discards the rest." }))),
+      h("p", { class: "small muted", text: nChal + (nChal === 1 ? " player has" : " players have") + " challenged this round." + (attempts.length ? " Run again to include later changes." : saved ? " Pairings are saved for this round." : "") })
     ];
-    var btns = [h("button", { class: proposal ? "ghost" : "", disabled: busy, onclick: function () { proposal = computePairings(derive()); confirmKey = null; render(); } }, proposal || saved ? "Run pairings again" : "Run pairings")];
-    if (proposal) {
-      if (confirmKey === "savepair") kids.push(confirmBox("Replace the pairings already saved for round " + round() + "?", "Replace", savePairings));
-      else btns.push(h("button", { disabled: busy, onclick: function () { if (saved) ask("savepair"); else savePairings(); } }, "Save pairings"));
-      btns.push(h("button", { class: "ghost", onclick: function () { proposal = null; confirmKey = null; render(); } }, "Discard"));
-    }
-    if (saved || proposal) {
+    var btns = [h("button", { class: attempts.length ? "ghost" : "", disabled: busy, onclick: function () {
+      attemptSeq = 1; attempts = [{ n: 1, res: computePairings(derive(), []) }]; manualPick = {}; openAttempts = new Set(); confirmKey = null; render();
+    } }, attempts.length || saved ? "Run pairings again" : "Run pairings")];
+    if (attempts.length) btns.push(h("button", { class: "ghost", onclick: function () { attempts = []; confirmKey = null; render(); } }, "Discard sets"));
+    if (saved) {
       if (confirmKey === "clearpair") kids.push(confirmBox("Clear the pairings and results saved for round " + round() + "? Challenges and bye requests stay.", "Clear pairings", function () {
         var r = round();
-        act(async function () { await db.doc("pairings/round-" + r).delete(); proposal = null; }, "Pairings cleared for round " + r + ".");
+        act(async function () { await db.doc("pairings/round-" + r).delete(); attempts = []; }, "Pairings cleared for round " + r + ".");
       }, true));
-      else btns.push(h("button", { class: "ghost", disabled: busy, onclick: function () { if (saved) ask("clearpair"); else { proposal = null; confirmKey = null; render(); } } }, "Clear pairings"));
+      else btns.push(h("button", { class: "ghost", disabled: busy, onclick: function () { ask("clearpair"); } }, "Clear pairings"));
     }
-    if (shown && shown.pairs.length && downloads) btns.push(h("button", { class: "ghost", onclick: function () { exportPairings(shown); } }, "Export CSV"));
+    if (saved && saved.pairs && saved.pairs.length && downloads) btns.push(h("button", { class: "ghost", onclick: function () { exportPairings(saved); } }, "Export CSV"));
     kids.push(h("div", { class: "row" }, btns));
+    kids.push(manualSection(d));
 
-    if (shown) {
-      var meta = function (p) {
-        var t = p.kind === "reassigned" ? p.bName + " was reassigned because their challenges couldn't be matched." : p.bName + " challenged " + p.aName + (p.choice ? " (their " + ordinal(p.choice) + " choice)." : ".");
-        return t + (p.repeatRound ? " Repeat of round " + p.repeatRound + "." : "");
-      };
-      kids.push(shown.pairs.length
-        ? h("ol", { class: "feed", style: "list-style:none;padding:0" }, shown.pairs.map(function (p, i) {
-            return h("li", {}, h("div", { class: "vs" }, h("span", { class: "meta num", text: "Board " + (i + 1) + "  " }), h("b", { text: p.bName }), " (#" + p.bRank + ") vs ", h("b", { text: p.aName }), " (#" + p.aRank + ")",
-              h("div", { class: "meta", text: meta(p) })),
-              (!proposal && saved) ? h("select", { class: "prefsel", id: "res-" + i, "aria-label": "Result for board " + (i + 1), disabled: busy,
-                onchange: function (e) { setResult(i, e.target.value); } },
-                RESULT_OPTIONS.map(function (o) { return h("option", { value: o[0], selected: o[0] === canonResult(p.result) }, o[1]); })) : null,
-              (!proposal && saved) ? h("input", { type: "url", class: "urlin", id: "url-" + i, placeholder: "Game URL, e.g. https://lichess.org/...", value: p.link || "", "aria-label": "Game URL for board " + (i + 1), disabled: busy,
-                onchange: function (e) { setGameUrl(i, e.target.value.trim()); } }) : null);
-          }))
-        : h("p", { class: "muted", text: "No pairs yet. Nobody has a challenge that can be matched." }));
-      if (!proposal && saved && shown.pairs.length) {
-        var after = ladderAfter(saved), moved = [];
-        after.forEach(function (p, i) {
-          var was = indexOf(p.id);
-          if (was !== i) moved.push(p.name + ": #" + (was + 1) + " to #" + (i + 1));
-        });
-        kids.push(h("p", { class: "small muted", text: "White is the challenger. Mark each result when the game is done." }));
-        kids.push(h("details", {},
-          h("summary", { text: "Ladder after these results (" + moved.length + (moved.length === 1 ? " change)" : " changes)") }),
-          moved.length ? h("ul", { class: "rules-list" }, moved.map(function (t) { return h("li", { text: t }); })) : h("p", { text: "No one moves yet. A challenger's win puts them just above their opponent, a draw just below. Losses and 0X-0X change nothing." })));
-      }
-      if (shown.unpaired.length) kids.push(h("div", { class: "preview" }, h("b", { text: "Challenged but not paired" }),
-        shown.unpaired.map(function (u) { return h("span", { text: u.name + " (#" + u.rank + "): " + u.reasons.join("; ") + "." }); })));
-      if (shown.byes.length) kids.push(h("p", { class: "small muted", text: "On a bye: " + shown.byes.map(nameOfId).join(", ") + "." }));
-      if (shown.others.length) kids.push(h("p", { class: "small muted", text: "No challenge, not paired: " + shown.others.map(nameOfId).join(", ") + "." }));
+    if (attempts.length) {
+      attempts.forEach(function (att, i) { kids.push(attemptView(att, saved, i === attempts.length - 1)); });
+      return h("div", { style: "display:flex;flex-direction:column;gap:10px" }, kids);
     }
+    if (saved) kids.push(h("p", { class: "small muted", text: "Pairings are saved for this round. They and their results are in the Round " + round() + " section above." }));
     return h("div", { style: "display:flex;flex-direction:column;gap:10px" }, kids);
   }
 
@@ -1279,10 +1630,10 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       h("summary", { text: title }), h("div", { class: "obody" }, kids));
   }
   function organizer(d) {
-    var parts = [h("h2", { text: "Organizer tools" })];
+    var parts = [h("h2", { text: "Moderator Tools" })];
     var secs = {};
     function put(k, el) { secs[k] = (secs[k] || []).concat([el]); }
-    parts.push(h("p", { class: "small muted", text: "Only organizers see this section." }));
+    parts.push(h("p", { class: "small muted", text: "Only moderators see this section." }));
 
     var rowsInfo = pendingImport
       ? h("div", { class: "preview" },
@@ -1307,7 +1658,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         ? confirmBox("Pull the ladder from the sheet now? Ranks and immunity are replaced by what the sheet says.", "Sync now", syncSheet)
         : h("div", { class: "row" }, h("button", { disabled: busy || !SHEET.id, onclick: function () { ask("sync"); } }, "Sync from Google Sheet")),
       ladder && ladder.source === "sheet" ? h("p", { class: "small muted", text: "The sheet is the source of truth for ranks and immunity. Sync again after you update it." }) : null));
-    put("organizers", organizersPanel());
+    put("moderators", moderatorsPanel());
 
     put("sheet", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
       h("h3", { text: "Or load from a file" }),
@@ -1333,22 +1684,23 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
               return h("li", {}, h("div", { class: "vs" }, h("b", { text: nameOf(m.playerId) }), h("div", { class: "meta", text: total + (total === 1 ? " bye" : " byes") + " requested in all rounds" })), h("span", { class: "meta", text: when }));
             }))
           : h("p", { class: "muted", text: "Nobody has requested a bye this round." })));
+      put("addplayer", addPlayerSection());
       put("inactive", inactiveSection(d));
       put("pairings", pairingsSection(d));
+      put("cards", cardsSection());
       put("past", pastRoundsSection());
       put("rules", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
         h("div", { class: "row" },
           h("label", { class: "field", for: "set-jump" }, "Spots a player may challenge up", h("input", { id: "set-jump", type: "number", min: "1", value: sd.maxJump, oninput: function (e) { settingsDraft = { maxJump: e.target.value }; } }))),
-        h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: saveSettings }, "Save rules"))));
+        h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: saveSettings }, "Save"))));
 
       put("round", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
         confirmKey === "round"
-          ? confirmBox((function () {
+          ? h("div", { style: "display:flex;flex-direction:column;gap:10px" }, nextCutoffField(), confirmBox((function () {
               var sv = pairingsDocs.find(function (x) { return x.round === round(); });
               if (!sv) return "Start round " + (round() + 1) + "? You haven't saved pairings for this round, so no results are applied. Bye requests and all challenges are cleared." + inactivityNote();
-              var open = (sv.pairs || []).filter(function (g) { return !resultKind(g.result).kind; }).length;
-              return "Start round " + (round() + 1) + "? Results are applied to the ladder now." + (open ? " " + open + (open === 1 ? " game has" : " games have") + " no result and will not move anyone." : "") + " Bye requests and all challenges are cleared." + inactivityNote();
-            })(), "Start round " + (round() + 1), startNextRound)
+              return "Start round " + (round() + 1) + "? The new ladder from the applied results becomes the current ladder." + " Bye requests and all challenges are cleared." + inactivityNote();
+            })(), "Start round " + (round() + 1), startNextRound))
           : confirmKey === "clearall"
           ? confirmBox("Clear all " + challenges.length + (challenges.length === 1 ? " challenge" : " challenges") + " for round " + round() + "? Bye requests stay.", "Clear all challenges", function () {
               act(async function () {
@@ -1357,21 +1709,25 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
               }, "All challenges for round " + round() + " are cleared.");
             }, true)
           : h("div", { class: "row" },
-              h("button", { class: "ghost", disabled: busy, onclick: function () { ask("round"); } }, "Start next round"),
+              h("button", { class: "ghost", disabled: busy, onclick: tryStartRound }, "Start next round"),
               h("button", { class: "ghost", disabled: busy || !challenges.length, onclick: function () { ask("clearall"); } }, "Clear all challenges"),
-              downloads ? h("button", { class: "ghost", onclick: exportCsv }, "Export ladder as CSV") : null)));
+              downloads ? h("button", { class: "ghost", onclick: exportCsv }, "Export ladder as CSV") : null),
+        cutoffEditor(),
+        roundPairingsBlock()));
     }
-    [["round", "Round " + round()], ["byes", "Bye requests, round " + round()], ["inactive", "Inactive players"], ["pairings", "Pairings, round " + round()],
-     ["past", "Past rounds"], ["sheet", "Google Sheet"], ["rules", "Rules"], ["organizers", "Organizers"]].forEach(function (x) {
+    [["round", "Round " + round()], ["addplayer", "Add/Remove a Player"], ["byes", "Bye Requests"], ["inactive", "Inactive Players"], ["pairings", "Run Pairings"], ["cards", "Yellow and Red Cards"],
+     ["past", "Past Rounds"], ["sheet", "Google Sheet"], ["rules", "Challenge Settings"], ["moderators", "Moderators"]].forEach(function (x) {
       if (secs[x[0]]) parts.push(osec(x[0], x[1], secs[x[0]]));
     });
-    return h("section", { class: "panel", "aria-label": "Organizer tools" }, parts);
+    return h("section", { class: "panel", "aria-label": "Moderator Tools" }, parts);
   }
 
   function render() {
     if (editing) { dirty = true; return; }
     dirty = false;
-    actCache = null;
+    actCache = null; immCache = null;
+    clearTimeout(cutoffTimer);
+    if (cutoffMs() && Date.now() < cutoffMs() && cutoffMs() - Date.now() < 2147000000) cutoffTimer = setTimeout(render, cutoffMs() - Date.now() + 500);
     var d = derive();
     var kids = [masthead()];
     if (!dbMissing) kids.push(accountBar());
@@ -1381,16 +1737,16 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         h("p", { class: "muted", text: "Fill in config.js with your Firebase project and Google API key. The README has the steps." })));
     } else if (loadError) {
       kids.push(h("section", { class: "panel empty" }, h("h2", { text: "The ladder can't be loaded" }),
-        h("p", { class: "muted", text: "Check your connection. If this keeps happening, the organizer should check the Firebase setup and security rules." })));
+        h("p", { class: "muted", text: "Check your connection. If this keeps happening, the moderator should check the Firebase setup and security rules." })));
     } else if (!ready.ladder) {
       kids.push(h("section", { class: "panel empty" }, h("h2", { text: "Loading the ladder" }),
         h("p", { class: "muted", text: slow ? "This is taking longer than usual. The ladder may be out of date until the connection recovers." : "One moment." })));
     } else if (!ladder) {
       kids.push(h("section", { class: "panel empty" }, h("h2", { text: "No ladder yet" }),
-        h("p", { class: "muted", text: isAdmin ? "Sync from your Google Sheet below to start the ladder." : "The organizer hasn't loaded the ladder yet. Check back soon." })));
+        h("p", { class: "muted", text: isAdmin ? "Sync from your Google Sheet below to start the ladder." : "The moderator hasn't loaded the ladder yet. Check back soon." })));
     } else {
-      var tabDefs = [["ladder", "Issue Challenges"], ["stats", "Podium stats"], ["jump", "Biggest jump"]];
-      if (isAdmin) tabDefs.push(["org", "Organizer tools"]);
+      var tabDefs = [["ladder", "Issue Challenges"], ["stats", "Podium Stats"], ["jump", "Biggest Jump"]];
+      if (isAdmin) tabDefs.push(["org", "Moderator Tools"]);
       if (!tabDefs.some(function (t) { return t[0] === tab; })) tab = "ladder";
       kids.push(h("div", { class: "tabs", role: "tablist" }, tabDefs.map(function (t) {
         return h("button", { role: "tab", "aria-selected": String(tab === t[0]), onclick: function () { tab = t[0]; render(); } }, t[1]);
@@ -1419,10 +1775,10 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function accountBar() {
     if (!auth) return h("div", { class: "acct" });
     if (me && !me.isAnonymous) {
-      return h("div", { class: "acct" }, h("span", { class: "muted", text: "Signed in as " + (me.displayName || me.email) + (isAdmin ? (isOwner ? " (owner)" : " (organizer)") : " (not an organizer)") }),
+      return h("div", { class: "acct" }, h("span", { class: "muted", text: "Signed in as " + (me.displayName || me.email) + (isAdmin ? (isOwner ? " (owner)" : " (moderator)") : " (not a moderator)") }),
         h("button", { class: "link", onclick: function () { auth.signOut(); } }, "Sign out"));
     }
-    return h("div", { class: "acct" }, h("button", { class: "link", onclick: signIn }, "Organizer sign-in"));
+    return h("div", { class: "acct" }, h("button", { class: "link", onclick: signIn }, "Moderator sign-in"));
   }
   function sheetsShim() {
     var base = "https://sheets.googleapis.com/v4/spreadsheets/";
@@ -1468,26 +1824,26 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     if (!tab) { toast("Enter the name of the ladder tab.", true); return; }
     act(async function () { await db.doc("settings/sheet").set({ sheetId: m[1], ladderTab: tab, savedAt: Date.now() }); sheetDraft = null; }, "Sheet saved.");
   }
-  function organizersPanel() {
+  function moderatorsPanel() {
     var rows = admins.slice().sort(function (a, b) { return a.id < b.id ? -1 : 1; }).map(function (a) {
-      return h("li", {}, h("div", { class: "vs" }, h("b", { text: a.id }), h("div", { class: "meta", text: a.role === "owner" ? "Owner" : "Organizer" })),
+      return h("li", {}, h("div", { class: "vs" }, h("b", { text: a.id }), h("div", { class: "meta", text: a.role === "owner" ? "Owner" : "Moderator" })),
         (isOwner && a.id !== myEmail()) ? h("button", { class: "link", disabled: busy, onclick: function () { removeAdmin(a.id); } }, "Remove") : null);
     });
     return h("div", { style: "display:flex;flex-direction:column;gap:10px" },
-      h("p", { class: "small muted", text: "Organizers see these tools and can change the ladder. Add the Google email address they sign in with." }),
+      h("p", { class: "small muted", text: "Moderators see these tools and can change the ladder. Add the Google email address they sign in with." }),
       rows.length ? h("ul", { class: "feed" }, rows) : null,
       isOwner
-        ? [h("label", { class: "field", for: "adm-email" }, "Organizer's Google email", h("input", { id: "adm-email", type: "email", style: "width:100%", value: adminDraft, placeholder: "name@example.com", oninput: function (e) { adminDraft = e.target.value; } })),
-           h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: addAdmin }, "Add organizer"))]
-        : h("p", { class: "small muted", text: "Only an owner can add or remove organizers." }));
+        ? [h("label", { class: "field", for: "adm-email" }, "Moderator's Google email", h("input", { id: "adm-email", type: "email", style: "width:100%", value: adminDraft, placeholder: "name@example.com", oninput: function (e) { adminDraft = e.target.value; } })),
+           h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: addAdmin }, "Add moderator"))]
+        : h("p", { class: "small muted", text: "Only an owner can add or remove moderators." }));
   }
   function addAdmin() {
     var em = adminDraft.trim().toLowerCase();
     if (!/^[^\s@\/]+@[^\s@\/]+\.[^\s@\/]+$/.test(em)) { toast("Enter a valid email address.", true); return; }
-    act(async function () { await db.doc("admins/" + em).set({ role: "organizer", addedBy: myEmail(), at: Date.now() }); adminDraft = ""; }, "Organizer added.");
+    act(async function () { await db.doc("admins/" + em).set({ role: "moderator", addedBy: myEmail(), at: Date.now() }); adminDraft = ""; }, "Moderator added.");
   }
   function removeAdmin(em) {
-    act(function () { return db.doc("admins/" + em).delete(); }, "Organizer removed.");
+    act(function () { return db.doc("admins/" + em).delete(); }, "Moderator removed.");
   }
 
   /* ---------- connect ---------- */
@@ -1522,6 +1878,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     listen("moves", function (rows) { moves = rows; });
     listen("pairings", function (rows) { pairingsDocs = rows; });
     listen("inactivity", function (rows) { inactivityDocs = rows; });
+    listen("cards", function (rows) { cardDocs = rows; });
     auth.onAuthStateChanged(async function (u) {
       isAdmin = false; isOwner = false; admins = [];
       if (adminUnsub) { adminUnsub(); adminUnsub = null; }

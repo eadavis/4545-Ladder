@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Players are signed in anonymously by the page (no login screen).
-    // Organizers sign in with Google and must be listed in /admins.
+    // Moderators sign in with Google and must be listed in /admins.
     function signedIn() { return request.auth != null; }
     function hasEmail() {
       return request.auth != null
@@ -15,7 +15,7 @@ service cloud.firestore {
     function isAdmin() { return hasEmail() && exists(adminDoc()); }
     function isOwner() { return isAdmin() && get(adminDoc()).data.role == 'owner'; }
 
-    // Who may use the organizer tools. Only owners change this list.
+    // Who may use the moderator tools. Only owners change this list.
     match /admins/{email} {
       allow get: if hasEmail() && email == myEmail();
       allow list: if isAdmin();
@@ -23,16 +23,18 @@ service cloud.firestore {
     }
 
     // Ladder order, round settings, pairings, results and the chosen sheet.
-    // Everyone can read; only organizers can change.
+    // Everyone can read; only moderators can change.
     match /ladder/{id}    { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}  { allow read: if true; allow write: if isAdmin(); }
     match /pairings/{id}  { allow read: if true; allow write: if isAdmin(); }
-    // Inactivity strikes and removals, written when an organizer starts the next round.
+    // Inactivity strikes and removals, written when an moderator starts the next round.
     match /inactivity/{id} { allow read: if true; allow write: if isAdmin(); }
+    // Yellow and red cards, entered by hand by moderators.
+    match /cards/{id} { allow read, write: if isAdmin(); }
 
     // Player entries. Any visitor can add, change and remove them, with no login.
     // The page names each entry's author by player, so this is trust-based: the rules
-    // only check the shape of the data, and organizers can clear everything.
+    // only check the shape of the data, and moderators can clear everything.
     match /challenges/{id} {
       allow read: if true;
       allow create: if signedIn()
