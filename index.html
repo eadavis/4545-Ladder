@@ -120,6 +120,10 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
 .delta.down { color: var(--warn); }
 .delta.new { color: var(--immune); }
 .prefsel { font-size: 13px; padding: 6px 8px; }
+.osec { font-size: 15px; color: var(--ink); border-top: 1px solid var(--line); padding-top: 12px; }
+.osec > summary { font-family: var(--font-display); font-weight: 700; font-size: 17px; cursor: pointer; color: var(--ink); }
+.osec > .otitle { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--ink); }
+.obody { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
 .acct { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13px; }
 .urlin { flex: 1 1 100%; font: inherit; font-size: 13px; padding: 6px 8px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
 .ladder .confirm-row { grid-column: 2 / -1; }
@@ -184,6 +188,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   var db = null, auth = null, downloads = null, mcp = null, me = null;
   var admins = [], isOwner = false, adminUnsub = null, adminDraft = "", sheetDraft = null;
   var ladder = null, challenges = [], moves = [], pairingsDocs = [], proposal = null;
+  var openSections = new Set(["round", "byes", "pairings"]);
   var openRounds = new Set(), importProgress = "", manual = { round: "", text: "" }, manualOpen = false;
   var ready = { ladder: false };
   var slow = false, dbMissing = false, loadError = null;
@@ -256,7 +261,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   }
   function errText(e) {
     var code = e && e.code;
-    if (code === "permission-denied") return "That isn't allowed. Sign in with Google first, or ask an organizer.";
+    if (code === "permission-denied") return "That isn't allowed. Reload the page and try again, or ask an organizer.";
     if (code === "unavailable" || code === "resource-exhausted") return "Too busy right now. Try again in a moment.";
     return (e && e.message) || "Something went wrong. Try again.";
   }
@@ -329,6 +334,12 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       var id = derive().byeNow.get(meId);
       if (id) await db.doc("moves/" + id).delete();
     }, "Bye request cancelled.");
+  }
+  function restoreImmunity() {
+    act(async function () {
+      var mine = moves.filter(function (m) { return m.type === "revoke" && m.playerId === meId; });
+      for (var i = 0; i < mine.length; i++) await db.doc("moves/" + mine[i].id).delete();
+    }, "Immunity restored.");
   }
   function revokeImmunity() {
     act(function () { return db.collection("moves").add({ type: "revoke", uid: myUid(), playerId: meId, at: Date.now() }); }, "Immunity revoked.");
@@ -819,7 +830,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       ps.map(function (p, i) { return h("option", { value: p.id, selected: p.id === meId }, "#" + (i + 1) + "  " + p.name); }));
     var mi = indexOf(meId), me = mi >= 0 ? ps[mi] : null;
     var kids = [h("label", { class: "field", for: "me-select" }, "Playing as", sel)];
-    if (!canWrite) kids.push(h("p", { class: "small warn-text", text: "Sign in with Google (top of the page) to send challenges, request a bye or revoke immunity." }));
+    if (!canWrite) kids.push(h("p", { class: "small warn-text", text: "Connecting. If this doesn't clear, check your connection." }));
     if (me) kids.push(meCard(me, mi, d));
     return h("section", { class: "panel", "aria-label": "Your ladder spot" }, kids);
   }
@@ -827,7 +838,9 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function meCard(me, mi, d) {
     var immune = isImmune(me, d), onBye = d.byeNow.has(me.id), mine = d.pending.filter(function (c) { return c.challengerId === me.id || c.targetId === me.id; });
     var chips = [];
+    var revoked = !!me.immune && d.revoked.has(me.id);
     if (immune) chips.push(chip("Immune", "immune"));
+    if (revoked) chips.push(chip("Immunity revoked", ""));
     if (onBye) chips.push(chip("Bye requested", "bye"));
     if (mine.length) chips.push(chip("Open challenge", ""));
     var lo = Math.max(1, mi + 1 - maxJump()), hi = mi;
@@ -854,9 +867,12 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     // Revoke immunity
     if (immune) {
       acts.push(confirmKey === "revoke"
-        ? confirmBox("Revoke your immunity? Only the organizer can restore it.", "Revoke immunity", revokeImmunity, true)
-        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Revoke your immunity" }), h("span", { class: "muted small", text: "Gives up your immune status." })),
+        ? confirmBox("Revoke your immunity? You can restore it from this page later.", "Revoke immunity", revokeImmunity, true)
+        : h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Revoke your immunity" }), h("span", { class: "muted small", text: "Gives up your immune status. You can restore it later." })),
             h("button", { class: "danger", disabled: busy || !canWrite, onclick: function () { ask("revoke"); } }, "Revoke immunity")));
+    } else if (revoked) {
+      acts.push(h("div", { class: "action" }, h("div", { class: "what" }, h("b", { text: "Restore your immunity" }), h("span", { class: "muted small", text: "Becomes immune again when pairings are run." })),
+        h("button", { disabled: busy || !canWrite, onclick: restoreImmunity }, "Restore immunity")));
     }
 
     return h("div", { class: "panel", style: "padding:0;border:none;background:transparent;gap:14px" },
@@ -936,7 +952,6 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function pastRoundsSection() {
     var past = pairingsDocs.filter(function (x) { return x.round < round(); }).sort(function (a, b) { return b.round - a.round; });
     var kids = [
-      h("h3", { text: "Past rounds" }),
       h("p", { class: "small muted", text: "Read from the Round tabs of the sheet, or entered by hand. The last three rounds are used to avoid repeat pairings. Reading from the sheet also sets the current round to the first one without pairings." }),
       h("div", { class: "row" },
         h("button", { disabled: busy || !mcp, onclick: importRounds }, past.length ? "Read past rounds again" : "Read past rounds from the sheet"),
@@ -960,7 +975,6 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     var shown = proposal || (saved ? { pairs: saved.pairs || [], byes: saved.byes || [], unpaired: [], others: [] } : null);
     var nChal = new Set(d.pending.map(function (c) { return c.challengerId; })).size;
     var kids = [
-      h("h3", { text: "Pairings, round " + round() }),
       h("details", {},
         h("summary", { text: "How pairings are chosen" }),
         h("ul", { class: "rules-list" },
@@ -1020,8 +1034,16 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     return h("div", { style: "display:flex;flex-direction:column;gap:10px" }, kids);
   }
 
+  function osec(key, title, kids) {
+    if (key === "round") return h("div", { class: "osec" }, h("div", { class: "otitle", text: title }), h("div", { class: "obody" }, kids));
+    var open = openSections.has(key) || (key === "sheet" && !ladder);
+    return h("details", { class: "osec", open: open, ontoggle: function (e) { if (e.target.open) openSections.add(key); else openSections.delete(key); } },
+      h("summary", { text: title }), h("div", { class: "obody" }, kids));
+  }
   function organizer(d) {
     var parts = [h("h2", { text: "Organizer tools" })];
+    var secs = {};
+    function put(k, el) { secs[k] = (secs[k] || []).concat([el]); }
     parts.push(h("p", { class: "small muted", text: "Only organizers see this section." }));
 
     var rowsInfo = pendingImport
@@ -1037,8 +1059,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
 
     var synced = ladder && ladder.lastSync ? new Date(ladder.lastSync).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null;
     var sd0 = sheetDraft || { url: SHEET.id ? "https://docs.google.com/spreadsheets/d/" + SHEET.id + "/edit" : "", tab: (sheetCfg && sheetCfg.ladderTab) || "LADDER" };
-    parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
-      h("h3", { text: "Google Sheet" }),
+    put("sheet", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
       h("p", { class: "small muted", text: "Share the sheet as \"Anyone with the link can view\", paste its link, and name the tab that holds the ladder (columns Ranking, Username, Immunity). Past rounds are read from tabs named Round 1, Round 2 and so on." }),
       h("label", { class: "field", for: "sheet-url" }, "Sheet link", h("input", { id: "sheet-url", type: "url", style: "width:100%", value: sd0.url, placeholder: "https://docs.google.com/spreadsheets/d/...", oninput: function (e) { sheetDraft = Object.assign({}, sd0, { url: e.target.value.trim() }); sd0 = sheetDraft; } })),
       h("label", { class: "field", for: "sheet-tab" }, "Ladder tab name", h("input", { id: "sheet-tab", type: "text", style: "width:100%", value: sd0.tab, oninput: function (e) { sheetDraft = Object.assign({}, sd0, { tab: e.target.value }); sd0 = sheetDraft; } })),
@@ -1048,9 +1069,9 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         ? confirmBox("Pull the ladder from the sheet now? Ranks and immunity are replaced by what the sheet says.", "Sync now", syncSheet)
         : h("div", { class: "row" }, h("button", { disabled: busy || !SHEET.id, onclick: function () { ask("sync"); } }, "Sync from Google Sheet")),
       ladder && ladder.source === "sheet" ? h("p", { class: "small muted", text: "The sheet is the source of truth for ranks and immunity. Sync again after you update it." }) : null));
-    parts.push(organizersPanel());
+    put("organizers", organizersPanel());
 
-    parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+    put("sheet", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
       h("h3", { text: "Or load from a file" }),
       h("p", { class: "small muted", text: "Use columns Rank, Name and, if you like, Immune (yes or no). Upload an Excel or CSV file, or paste the rows straight from your sheet. Without a Rank column, the order of the rows is the ranking." }),
       h("label", { class: "field", for: "file-in" }, "Excel or CSV file", h("input", { id: "file-in", type: "file", accept: ".xlsx,.xls,.xlsm,.csv,.tsv,.txt", onchange: onFile })),
@@ -1066,8 +1087,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       var sd = settingsDraft || { maxJump: maxJump() };
       var reqs = moves.filter(function (m) { return m.type === "bye" && m.round === round(); }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
       var nameOf = function (id) { var p = players()[indexOf(id)]; return p ? p.name : "Unknown player"; };
-      parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
-        h("h3", { text: "Bye requests, round " + round() }),
+      put("byes", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
         reqs.length
           ? h("ul", { class: "feed" }, reqs.map(function (m) {
               var total = d.byeCount.get(m.playerId) || 0;
@@ -1075,16 +1095,14 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
               return h("li", {}, h("div", { class: "vs" }, h("b", { text: nameOf(m.playerId) }), h("div", { class: "meta", text: total + (total === 1 ? " bye" : " byes") + " requested in all rounds" })), h("span", { class: "meta", text: when }));
             }))
           : h("p", { class: "muted", text: "Nobody has requested a bye this round." })));
-      parts.push(pairingsSection(d));
-      parts.push(pastRoundsSection());
-      parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
-        h("h3", { text: "Rules" }),
+      put("pairings", pairingsSection(d));
+      put("past", pastRoundsSection());
+      put("rules", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
         h("div", { class: "row" },
           h("label", { class: "field", for: "set-jump" }, "Spots a player may challenge up", h("input", { id: "set-jump", type: "number", min: "1", value: sd.maxJump, oninput: function (e) { settingsDraft = { maxJump: e.target.value }; } }))),
         h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy, onclick: saveSettings }, "Save rules"))));
 
-      parts.push(h("div", { style: "display:flex;flex-direction:column;gap:10px" },
-        h("h3", { text: "Round " + round() }),
+      put("round", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
         confirmKey === "round"
           ? confirmBox((function () {
               var sv = pairingsDocs.find(function (x) { return x.round === round(); });
@@ -1096,6 +1114,10 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
               h("button", { class: "ghost", disabled: busy, onclick: function () { ask("round"); } }, "Start next round"),
               downloads ? h("button", { class: "ghost", onclick: exportCsv }, "Export ladder as CSV") : null)));
     }
+    [["round", "Round " + round()], ["byes", "Bye requests, round " + round()], ["pairings", "Pairings, round " + round()],
+     ["past", "Past rounds"], ["sheet", "Google Sheet"], ["rules", "Rules"], ["organizers", "Organizers"]].forEach(function (x) {
+      if (secs[x[0]]) parts.push(osec(x[0], x[1], secs[x[0]]));
+    });
     return h("section", { class: "panel", "aria-label": "Organizer tools" }, parts);
   }
 
@@ -1139,10 +1161,11 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   }
   function accountBar() {
     if (!auth) return h("div", { class: "acct" });
-    return me
-      ? h("div", { class: "acct" }, h("span", { class: "muted", text: "Signed in as " + (me.displayName || me.email) + (isAdmin ? (isOwner ? " (owner)" : " (organizer)") : "") }),
-          h("button", { class: "link", onclick: function () { auth.signOut(); } }, "Sign out"))
-      : h("div", { class: "acct" }, h("button", { class: "ghost", onclick: signIn }, "Sign in with Google"), h("span", { class: "muted", text: "Needed to challenge, request a bye or revoke immunity." }));
+    if (me && !me.isAnonymous) {
+      return h("div", { class: "acct" }, h("span", { class: "muted", text: "Signed in as " + (me.displayName || me.email) + (isAdmin ? (isOwner ? " (owner)" : " (organizer)") : " (not an organizer)") }),
+        h("button", { class: "link", onclick: function () { auth.signOut(); } }, "Sign out"));
+    }
+    return h("div", { class: "acct" }, h("button", { class: "link", onclick: signIn }, "Organizer sign-in"));
   }
   function sheetsShim() {
     var base = "https://sheets.googleapis.com/v4/spreadsheets/";
@@ -1194,7 +1217,6 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         (isOwner && a.id !== myEmail()) ? h("button", { class: "link", disabled: busy, onclick: function () { removeAdmin(a.id); } }, "Remove") : null);
     });
     return h("div", { style: "display:flex;flex-direction:column;gap:10px" },
-      h("h3", { text: "Organizers" }),
       h("p", { class: "small muted", text: "Organizers see these tools and can change the ladder. Add the Google email address they sign in with." }),
       rows.length ? h("ul", { class: "feed" }, rows) : null,
       isOwner
@@ -1243,10 +1265,17 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     listen("moves", function (rows) { moves = rows; });
     listen("pairings", function (rows) { pairingsDocs = rows; });
     auth.onAuthStateChanged(async function (u) {
-      me = u; canWrite = !!u; isAdmin = false; isOwner = false;
+      isAdmin = false; isOwner = false; admins = [];
       if (adminUnsub) { adminUnsub(); adminUnsub = null; }
-      admins = [];
-      if (u && u.email) {
+      if (!u) {
+        me = null; canWrite = false; render();
+        auth.signInAnonymously().catch(function (e) {
+          toast(e && e.code === "auth/operation-not-allowed" ? "Turn on Anonymous sign-in under Authentication in the Firebase console." : ((e && e.message) || "Couldn't connect."), true);
+        });
+        return;
+      }
+      me = u; canWrite = true;
+      if (!u.isAnonymous && u.email) {
         try {
           var snap = await db.doc("admins/" + u.email.toLowerCase()).get();
           if (snap.exists) { isAdmin = true; isOwner = snap.data().role === "owner"; }
