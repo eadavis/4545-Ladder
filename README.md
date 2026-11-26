@@ -74,3 +74,7 @@ Keep these in mind:
 - Anonymous sign-in is tied to a browser. If a player clears site data or switches device, they pick
   their name again and can still edit their entries.
 - Anyone can read challenges, byes and pairings, because the ladder shows them.
+
+## Updating an existing site
+
+Replace `index.html` and republish `firestore.rules` (Firestore > Rules). The rules now include an `inactivity` collection used for strikes and removals. `config.js` is unchanged, so keep your own.

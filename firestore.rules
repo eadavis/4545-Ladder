@@ -27,6 +27,8 @@ service cloud.firestore {
     match /ladder/{id}    { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}  { allow read: if true; allow write: if isAdmin(); }
     match /pairings/{id}  { allow read: if true; allow write: if isAdmin(); }
+    // Inactivity strikes and removals, written when an organizer starts the next round.
+    match /inactivity/{id} { allow read: if true; allow write: if isAdmin(); }
 
     // Player entries. Any visitor can add, change and remove them, with no login.
     // The page names each entry's author by player, so this is trust-based: the rules

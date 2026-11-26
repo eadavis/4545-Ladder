@@ -43,18 +43,18 @@
 body { margin: 0; }
 [hidden] { display: none !important; }
 body {
-  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 18px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 20px 56px;
 }
-.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.wrap { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
-h1 { font-size: 30px; line-height: 1.1; }
-h2 { font-size: 18px; }
+h1 { font-size: 36px; line-height: 1.1; }
+h2 { font-size: 22px; }
 p { margin: 0; }
 .muted { color: var(--muted); }
-.small { font-size: 13px; }
+.small { font-size: 16px; }
 .num { font-variant-numeric: tabular-nums; }
 
 .masthead { display: flex; flex-direction: column; gap: 10px; }
@@ -63,12 +63,12 @@ p { margin: 0; }
   background: repeating-conic-gradient(var(--surface2) 0 25%, var(--surface) 0 50%) 0 0 / 32px 32px;
 }
 .title-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
-.round-pill { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.round-pill { font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .panel > h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 
-label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 16px; font-weight: 600; }
 select, input[type="number"], input[type="file"], textarea {
   font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-width: 0; max-width: 100%;
 }
@@ -78,21 +78,36 @@ input[type="number"] { width: 90px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 button {
-  font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 6px; padding: 8px 13px;
+  font: inherit; font-weight: 600; font-size: 17px; cursor: pointer; border-radius: 6px; padding: 8px 13px;
   border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
 }
 button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
 button.danger { background: transparent; color: var(--warn); border-color: var(--warn); }
-button.link { background: none; border: none; padding: 2px 0; color: var(--muted); font-weight: 500; font-size: 13px; text-decoration: underline; }
+button.link { background: none; border: none; padding: 2px 0; color: var(--muted); font-weight: 500; font-size: 16px; text-decoration: underline; }
 button[disabled] { opacity: 0.45; cursor: not-allowed; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 .me-head { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.bigrank { font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: 1; color: var(--accent); min-width: 2ch; }
-.me-name { font-family: var(--font-display); font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+.bigrank { font-family: var(--font-display); font-weight: 700; font-size: 48px; line-height: 1; color: var(--accent); min-width: 2ch; }
+.me-name { font-family: var(--font-display); font-size: 24px; font-weight: 700; overflow-wrap: anywhere; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.chip { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface2); color: var(--muted); white-space: nowrap; }
+.chip { font-size: 14px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface2); color: var(--muted); white-space: nowrap; }
 .chip.immune { background: var(--immune-bg); color: var(--immune); }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); }
+.tabs button { background: transparent; color: var(--muted); border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 8px 12px; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.stat-head, .stat-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, 3.6em); gap: 4px; align-items: center; text-align: right; }
+.stat-head { font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 12px; }
+.stat-head span:first-child, .stat-row .nm { text-align: left; }
+.stat-list { display: flex; flex-direction: column; gap: 6px; }
+.stat-list details { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.stat-list summary { padding: 9px 12px; cursor: pointer; list-style: none; }
+.stat-list summary::-webkit-details-marker { display: none; }
+.stat-row .nm { overflow-wrap: anywhere; font-weight: 600; }
+.stat-list .mine { background: var(--reach) !important; border-color: var(--accent) !important; }
+.stat-row .top { background: var(--bye-bg); color: var(--bye); font-weight: 700; border-radius: 4px; padding: 1px 6px; }
+.stat-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 16px; }
+.chip.inactive { background: var(--surface2); color: var(--warn); }
 .chip.bye { background: var(--bye-bg); color: var(--bye); }
 .chip.you { background: var(--accent); color: var(--accent-ink); }
 .actions { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
@@ -107,39 +122,39 @@ button[disabled] { opacity: 0.45; cursor: not-allowed; }
 .ladder li:first-child { border-top: none; }
 .ladder li.reach { background: var(--reach); }
 .ladder li.me { box-shadow: inset 4px 0 0 var(--accent); }
-.ladder .rk { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--muted); }
+.ladder .rk { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--muted); }
 .ladder .nm { min-width: 0; overflow-wrap: anywhere; }
 .ladder .nm .chips { margin-top: 3px; }
 .ladder .act { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
-details { font-size: 13px; color: var(--muted); }
+details { font-size: 16px; color: var(--muted); }
 details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
 .rules-list { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
-.ladder .why { font-size: 12px; color: var(--muted); }
-.delta { display: block; font-family: var(--font-body); font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--muted); }
+.ladder .why { font-size: 14px; color: var(--muted); }
+.delta { display: block; font-family: var(--font-body); font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--muted); }
 .delta.up { color: var(--accent); }
 .delta.down { color: var(--warn); }
 .delta.new { color: var(--immune); }
-.prefsel { font-size: 13px; padding: 6px 8px; }
-.osec { font-size: 15px; color: var(--ink); border-top: 1px solid var(--line); padding-top: 12px; }
-.osec > summary { font-family: var(--font-display); font-weight: 700; font-size: 17px; cursor: pointer; color: var(--ink); }
-.osec > .otitle { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--ink); }
+.prefsel { font-size: 16px; padding: 6px 8px; }
+.osec { font-size: 18px; color: var(--ink); border-top: 1px solid var(--line); padding-top: 12px; }
+.osec > summary { font-family: var(--font-display); font-weight: 700; font-size: 20px; cursor: pointer; color: var(--ink); }
+.osec > .otitle { font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--ink); }
 .obody { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
 .acct { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13px; }
-.urlin { flex: 1 1 100%; font: inherit; font-size: 13px; padding: 6px 8px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.urlin { flex: 1 1 100%; font: inherit; font-size: 16px; padding: 6px 8px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
 .ladder .confirm-row { grid-column: 2 / -1; }
-.ladder button { padding: 6px 11px; font-size: 13px; }
+.ladder button { padding: 6px 11px; font-size: 16px; }
 
 .feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .feed li { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: space-between; align-items: center; }
 .feed .vs { min-width: 0; overflow-wrap: anywhere; }
-.feed .meta { font-size: 12px; color: var(--muted); }
+.feed .meta { font-size: 14px; color: var(--muted); }
 
 .empty { text-align: left; display: flex; flex-direction: column; gap: 8px; }
-.preview { background: var(--surface2); border-radius: 6px; padding: 10px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+.preview { background: var(--surface2); border-radius: 6px; padding: 10px 12px; font-size: 16px; display: flex; flex-direction: column; gap: 6px; }
 .warn-text { color: var(--warn); }
-.rules { font-size: 13px; color: var(--muted); }
+.rules { font-size: 16px; color: var(--muted); }
 
-#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); max-width: min(92vw, 520px); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; font-size: 14px; z-index: 20; }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); max-width: min(92vw, 520px); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; font-size: 17px; z-index: 20; }
 #toast[hidden] { display: none; }
 #toast.err { background: var(--warn); color: var(--surface); }
 @media (prefers-reduced-motion: no-preference) { button { transition: opacity 0.15s; } }
@@ -188,7 +203,9 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   var db = null, auth = null, downloads = null, mcp = null, me = null;
   var admins = [], isOwner = false, adminUnsub = null, adminDraft = "", sheetDraft = null;
   var ladder = null, challenges = [], moves = [], pairingsDocs = [], proposal = null;
-  var openSections = new Set(["round", "byes", "pairings"]);
+  var tab = "ladder";
+  var openSections = new Set(["round", "byes", "inactive", "pairings"]);
+  var inactivityDocs = [], actCache = null;
   var openRounds = new Set(), importProgress = "", manual = { round: "", text: "" }, manualOpen = false;
   var ready = { ladder: false };
   var slow = false, dbMissing = false, loadError = null;
@@ -293,6 +310,12 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function prefList(challengerId, d) {
     return d.pending.filter(function (c) { return c.challengerId === challengerId; })
       .sort(function (a, b) { return (a.pref != null ? a.pref : 1e9) - (b.pref != null ? b.pref : 1e9) || (a.at || 0) - (b.at || 0); });
+  }
+  function clearChallenges() {
+    act(async function () {
+      var mine = prefList(meId, derive());
+      for (var i = 0; i < mine.length; i++) await db.doc("challenges/" + mine[i].id).delete();
+    }, "All your challenges are cleared.");
   }
   /* k = 0 removes the challenge; k >= 1 puts the target at that place in the player's ordered choices. */
   function setPreference(targetId, k) {
@@ -663,13 +686,21 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   }
   function startNextRound() {
     act(async function () {
-      var saved = pairingsDocs.find(function (x) { return x.round === round(); });
-      var upd = { round: round() + 1 };
-      if (saved) upd.players = ladderAfter(saved);
-      await db.doc("ladder/current").update(upd);
+      var d = derive(), r = round();
+      var saved = pairingsDocs.find(function (x) { return x.round === r; });
+      var curCh = currentChallengers(d);
+      var res = applyInactivity(saved ? ladderAfter(saved) : players().map(function (q) { return Object.assign({}, q); }), curCh);
+      var chIds = Array.from(curCh);
+      if (saved) await db.doc("pairings/round-" + r).update({ challengers: chIds });
+      else await db.doc("pairings/round-" + r).set({ round: r, challengers: chIds, pairs: [], start: currentStart(), savedAt: Date.now() });
+      await db.doc("ladder/current").update({ round: r + 1, players: res.players });
+      for (var k = 0; k < res.events.length; k++) {
+        var ev = res.events[k];
+        await db.doc("inactivity/r" + r + "-" + ev.playerId).set(Object.assign({ at: Date.now() }, ev));
+      }
       for (var i = 0; i < challenges.length; i++) await db.doc("challenges/" + challenges[i].id).delete();
       proposal = null;
-    }, "Round " + (round() + 1) + " started. Results are applied to the ladder, and bye requests and challenges are cleared.");
+    }, "Round " + (round() + 1) + " started. Results and inactivity are applied to the ladder, and bye requests and challenges are cleared.");
   }
   function saveSettings() {
     var s = settingsDraft || {};
@@ -814,10 +845,10 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     return h("header", { class: "masthead" },
       h("div", { class: "board-strip", "aria-hidden": "true" }),
       h("div", { class: "title-row" },
-        h("h1", { text: "Chess Ladder" }),
+        h("h1", { text: "4545 Ladder" }),
         ladder ? h("span", { class: "round-pill num", text: "Round " + round() }) : null),
-      ladder ? h("p", { class: "rules", text:
-        "Challenge anyone up to " + maxJump() + " spots above you, immune or not. New players can challenge anyone above them. Immunity is checked when pairings are run, so a player can still revoke it first. Request a bye if you need to sit out a round." }) : null);
+      h("p", { class: "small" }, "Ladder rules can be found ", h("a", { href: "https://docs.google.com/document/d/1991lFK5vCeomHYMPDub8e4a73sJQw5sCp8BLpcbJnxU/edit?usp=sharing", target: "_blank", rel: "noopener" }, "here"), "."),
+      null);
   }
 
   function mePanel(d) {
@@ -879,10 +910,11 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       h("div", { class: "me-head" },
         h("div", { class: "bigrank num", text: "#" + (mi + 1) }),
         h("div", { style: "min-width:0" }, h("div", { class: "me-name", text: me.name }), chips.length ? h("div", { class: "chips" }, chips) : null)),
-      h("p", { class: "muted", text: reach }),
       (function () {
         var l = prefList(me.id, d);
-        return l.length ? h("p", { class: "small", text: "Your choices: " + l.map(function (c, i) { return (i + 1) + ". " + c.targetName; }).join("   ") }) : null;
+        return l.length ? h("div", { class: "row", style: "justify-content:space-between" },
+          h("p", { class: "small", style: "margin:0;flex:1 1 200px", text: "Your choices: " + l.map(function (c, i) { return (i + 1) + ". " + c.targetName + (playedInARow(me.id, c.targetId) ? " (can't repeat)" : ""); }).join("   ") }),
+          h("button", { class: "ghost", disabled: busy || !canWrite, onclick: clearChallenges }, "Clear all challenges")) : null;
       })(),
       h("div", { class: "actions" }, acts));
   }
@@ -905,6 +937,8 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       var chips = [];
       if (isMe) chips.push(chip("You", "you"));
       if (isImmune(p, d)) chips.push(chip("Immune", "immune"));
+      var inS = standingStreak(p.id);
+      if (inS >= 3) chips.push(chip(inactiveLabel(inS), "inactive"));
       if (d.byeNow.has(p.id)) chips.push(chip("Bye requested", "bye"));
       var act = [];
       if (inReach) {
@@ -931,8 +965,205 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     return h("section", { "aria-label": "Ladder" },
       h("div", { class: "panel", style: "padding:0;border:none;background:transparent;gap:10px" },
         h("h2", {}, "The ladder", h("span", { class: "muted small num", text: ps.length + " players" })),
+        h("p", { class: "rules", text: "Challenge anyone up to " + maxJump() + " spots above you, immune or not. New players can challenge anyone above them. Immunity is checked when pairings are run, so a player can still revoke it first. Request a bye if you need to sit out a round." }),
         me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : h("p", { class: "small muted", text: "Choose your name above to see who you can challenge." }),
         h("ol", { class: "ladder", style: "list-style:none" }, items)));
+  }
+
+  /* ---------- inactivity ---------- */
+  /* A round has no activity for a player who issued no challenge in it and did not play a game in the round before.
+     Three such rounds in a row: inactive. Each further round: strike 1, strike 2 (each lowers them one rank). The round after: removed. */
+  function actIdx() {
+    if (actCache) return actCache;
+    var byRound = {}, played = {}, chal = {};
+    pairingsDocs.forEach(function (doc) {
+      var pl = new Set(), ch = new Set();
+      (doc.pairs || []).forEach(function (g) { pl.add(g.a); pl.add(g.b); ch.add(g.b); });
+      (doc.challengers || []).forEach(function (id) { ch.add(id); });
+      byRound[doc.round] = doc; played[doc.round] = pl; chal[doc.round] = ch;
+    });
+    var bye = {};
+    moves.forEach(function (m) { if (m.type === "bye") (bye[m.round] = bye[m.round] || new Set()).add(m.playerId); });
+    pairingsDocs.forEach(function (doc) { (doc.byes || []).forEach(function (id) { (bye[doc.round] = bye[doc.round] || new Set()).add(id); }); });
+    actCache = { byRound: byRound, played: played, chal: chal, bye: bye };
+    return actCache;
+  }
+  function inactiveStreak(id, throughR, curCh) {
+    var X = actIdx(), n = 0, hadBye = false;
+    for (var R = throughR; R >= 1; R--) {
+      var doc = X.byRound[R];
+      if (!doc && !(curCh && R === throughR)) break;
+      var st = doc && doc.start;
+      if (st && st[id] == null) break;
+      var ch = (curCh && R === throughR && curCh.has(id)) || (X.chal[R] && X.chal[R].has(id));
+      var pl = X.played[R] && X.played[R].has(id);
+      if (ch || pl) break;
+      n++;
+      if (X.bye[R] && X.bye[R].has(id)) hadBye = true;
+    }
+    return hadBye ? Math.max(0, n - 1) : n;
+  }
+  /* Rounds without activity up to the last finished round. */
+  function standingStreak(id) {
+    var X = actIdx();
+    return inactiveStreak(id, round() - 1, null);
+  }
+  function currentChallengers(d) { return new Set(d.pending.map(function (c) { return c.challengerId; })); }
+  /* Strikes lower a player one rank; a third round after being marked removes them. Returns the new order and what happened. */
+  function applyInactivity(order, curCh) {
+    var removed = new Set(), pen = new Set(), events = [];
+    order.forEach(function (p, i) {
+      var S = inactiveStreak(p.id, round(), curCh);
+      if (S >= 6) { removed.add(p.id); events.push({ type: "removed", round: round(), playerId: p.id, name: p.name, rank: i + 1 }); }
+      else if (S === 4 || S === 5) { pen.add(p.id); events.push({ type: "strike", strike: S - 3, round: round(), playerId: p.id, name: p.name, rank: i + 1 }); }
+    });
+    var out = order.filter(function (p) { return !removed.has(p.id); });
+    for (var i = out.length - 2; i >= 0; i--) {
+      if (pen.has(out[i].id) && !pen.has(out[i + 1].id)) { var t = out[i]; out[i] = out[i + 1]; out[i + 1] = t; }
+    }
+    return { players: out, events: events };
+  }
+  function inactivityNote() {
+    var d = derive(), saved = pairingsDocs.find(function (x) { return x.round === round(); });
+    var base = saved ? ladderAfter(saved) : players();
+    var ev = applyInactivity(base, currentChallengers(d)).events;
+    var st = ev.filter(function (e) { return e.type === "strike"; }).map(function (e) { return e.name + " (strike " + e.strike + ")"; });
+    var rm = ev.filter(function (e) { return e.type === "removed"; }).map(function (e) { return e.name; });
+    return (st.length ? " Inactive strikes, moved down one spot: " + st.join(", ") + "." : "") + (rm.length ? " Removed from the ladder for inactivity: " + rm.join(", ") + "." : "");
+  }
+  function inactiveLabel(S) { return S >= 4 ? "Inactive, strike " + Math.min(2, S - 3) : "Inactive"; }
+  function inactiveSection(d) {
+    var ps = players(), curCh = currentChallengers(d);
+    var now = [], soon = [], building = [];
+    ps.forEach(function (p, i) {
+      var S = standingStreak(p.id), S2 = inactiveStreak(p.id, round(), curCh);
+      if (S >= 3) now.push({ p: p, rank: i + 1, S: S });
+      else if (S >= 1) building.push({ p: p, rank: i + 1, S: S, S2: S2 });
+      if (S2 === 3 && S < 3) soon.push({ p: p, rank: i + 1 });
+    });
+    var pv = applyInactivity(ps, curCh).events;
+    var log = inactivityDocs.slice().sort(function (a, b) { return (b.round || 0) - (a.round || 0) || (b.at || 0) - (a.at || 0); });
+    var removed = log.filter(function (e) { return e.type === "removed"; });
+    var strikes = log.filter(function (e) { return e.type === "strike"; }).slice(0, 8);
+    var kids = [
+      h("p", { class: "small muted", text: "A round counts as no activity for a player who neither issued a challenge nor played a game in that round (for past rounds, anyone who didn't play is taken to have not challenged). Three in a row marks them inactive. Each round after that is a strike and moves them down one spot. The third round after being marked removes them. A single bye is a grace period: it takes one round off the count, so three byes in a row count as two. Any activity clears it." }),
+      h("h3", { text: "Inactive now" }),
+      now.length ? h("ul", { class: "feed" }, now.map(function (x) {
+        return h("li", {}, h("div", { class: "vs" }, h("b", { text: x.p.name }), " (#" + x.rank + ")", h("div", { class: "meta", text: inactiveLabel(x.S) + ", " + x.S + " rounds without activity" })));
+      })) : h("p", { class: "muted", text: "Nobody is inactive." }),
+      h("h3", { text: "Building up (not yet inactive)" }),
+      building.length ? h("ul", { class: "feed" }, building.map(function (x) {
+        return h("li", {}, h("div", { class: "vs" }, h("b", { text: x.p.name }), " (#" + x.rank + ")",
+          h("div", { class: "meta", text: x.S + " of 3 rounds without activity" })));
+      })) : h("p", { class: "muted", text: "Nobody is building up rounds without activity." }),
+      h("h3", { text: "If you start the next round now" }),
+      (pv.length || soon.length) ? h("ul", { class: "feed" },
+        soon.map(function (x) { return h("li", {}, h("div", { class: "vs" }, h("b", { text: x.p.name }), " (#" + x.rank + ")", h("div", { class: "meta", text: "Becomes inactive (3 rounds without activity)" }))); }),
+        pv.map(function (e) {
+          return h("li", {}, h("div", { class: "vs" }, h("b", { text: e.name }), " (#" + e.rank + ")",
+            h("div", { class: e.type === "removed" ? "meta warn-text" : "meta", text: e.type === "removed" ? "Removed from the ladder" : "Strike " + e.strike + ", moves down one spot" })));
+        })) : h("p", { class: "muted", text: "No changes from inactivity." }),
+      h("h3", { text: "Removed players" }),
+      removed.length ? h("ul", { class: "feed" }, removed.map(function (e) {
+        return h("li", {}, h("div", { class: "vs" }, h("b", { text: e.name }), h("div", { class: "meta", text: "Removed when round " + e.round + " ended, from #" + e.rank })),
+          h("span", { class: "meta", text: new Date(e.at || Date.now()).toLocaleDateString(undefined, { month: "short", day: "numeric" }) }));
+      })) : h("p", { class: "muted", text: "No one has been removed." }),
+      strikes.length ? h("details", {}, h("summary", { text: "Recent strikes" }),
+        h("ul", { class: "rules-list" }, strikes.map(function (e) { return h("li", { text: e.name + ": strike " + e.strike + " after round " + e.round }); }))) : null,
+      ladder && ladder.source === "sheet" ? h("p", { class: "small muted", text: "Strikes and removals change the ladder on this page. Update your sheet to match, or the next sync brings removed players back." }) : null
+    ];
+    return h("div", { style: "display:flex;flex-direction:column;gap:10px" }, kids);
+  }
+
+  /* ---------- stats ---------- */
+  function rangeText(rs) {
+    var out = [], i = 0;
+    while (i < rs.length) {
+      var j = i;
+      while (j + 1 < rs.length && rs[j + 1] === rs[j] + 1) j++;
+      out.push(j > i ? rs[i] + "-" + rs[j] : String(rs[i]));
+      i = j + 1;
+    }
+    return out.join(", ");
+  }
+  function podiumStats() {
+    var names = {}, byId = {}, starts = {};
+    pairingsDocs.forEach(function (doc) {
+      (doc.pairs || []).forEach(function (g) { if (g.a && g.aName) names[g.a] = g.aName; if (g.b && g.bName) names[g.b] = g.bName; });
+      if (doc.start && Object.keys(doc.start).length) starts[doc.round] = doc.start;
+    });
+    players().forEach(function (p) { names[p.id] = p.name; });
+    if (!starts[round()]) starts[round()] = currentStart();
+    Object.keys(starts).map(Number).sort(function (a, b) { return a - b; }).forEach(function (R) {
+      if (R < 2) return;
+      var st = starts[R];
+      Object.keys(st).forEach(function (id) {
+        var e = byId[id] || (byId[id] = { id: id, name: names[id] || id, r: { 1: [], 2: [], 3: [] }, now: false });
+        if (st[id] >= 1 && st[id] <= 3) e.r[st[id]].push(R);
+      });
+    });
+    players().forEach(function (p) { if (byId[p.id]) byId[p.id].now = true; });
+    var rows = Object.keys(byId).map(function (id) {
+      var e = byId[id]; e.c = [e.r[1].length, e.r[2].length, e.r[3].length]; e.total = e.c[0] + e.c[1] + e.c[2]; return e;
+    });
+    rows = rows.filter(function (e) { return e.total > 0; });
+    rows.sort(function (a, b) { return b.total - a.total || b.c[0] - a.c[0] || b.c[1] - a.c[1] || b.c[2] - a.c[2] || a.name.localeCompare(b.name); });
+    return rows;
+  }
+  function jumpStats() {
+    var names = {}, starts = {}, best = {};
+    pairingsDocs.forEach(function (doc) {
+      (doc.pairs || []).forEach(function (g) { if (g.a && g.aName) names[g.a] = g.aName; if (g.b && g.bName) names[g.b] = g.bName; });
+      if (doc.start && Object.keys(doc.start).length) starts[doc.round] = doc.start;
+    });
+    players().forEach(function (p) { names[p.id] = p.name; });
+    if (!starts[round()]) starts[round()] = currentStart();
+    Object.keys(starts).map(Number).forEach(function (R) {
+      if (R < 2 || !starts[R + 1]) return;
+      Object.keys(starts[R]).forEach(function (id) {
+        var to = starts[R + 1][id];
+        if (to == null) return;
+        var gain = starts[R][id] - to;
+        if (gain > 0 && (!best[id] || gain > best[id].gain || (gain === best[id].gain && R < best[id].R)))
+          best[id] = { id: id, name: names[id] || id, gain: gain, R: R, from: starts[R][id], to: to, now: false };
+      });
+    });
+    players().forEach(function (p) { if (best[p.id]) best[p.id].now = true; });
+    return Object.keys(best).map(function (k) { return best[k]; }).sort(function (a, b) { return b.gain - a.gain || a.R - b.R || a.name.localeCompare(b.name); });
+  }
+  function jumpView() {
+    var rows = jumpStats();
+    if (!rows.length) return h("section", { class: "panel empty" }, h("h2", { text: "Biggest jump" }), h("p", { class: "muted", text: "No rank changes between rounds have been loaded yet." }));
+    var top = rows[0].gain;
+    return h("section", { class: "panel" },
+      h("h2", { text: "Biggest jump" }),
+      h("p", { class: "small muted", text: "Each player's largest climb between the ladders at the start of two consecutive rounds. Round 1 is not counted. The biggest jump overall is highlighted." }),
+      h("div", { class: "stat-list" }, rows.map(function (e) {
+        return h("div", { class: "stat-row jump" + (e.id === meId ? " mine" : ""), style: "background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:9px 12px;grid-template-columns:minmax(0,1fr) auto" },
+          h("span", { class: "nm", text: e.name + (e.id === meId ? " (you)" : "") + (e.now ? "" : " (off ladder)") }),
+          h("span", { class: "num" + (e.gain === top ? " top" : ""), text: e.gain + (e.gain === 1 ? " rank" : " ranks") + ", Round " + e.R + "-" + (e.R + 1) + " (#" + e.from + " to #" + e.to + ")" }));
+      })));
+  }
+  function statsView() {
+    var rows = podiumStats();
+    if (!rows.length) return h("section", { class: "panel empty" }, h("h2", { text: "Stats" }), h("p", { class: "muted", text: "No rounds have been loaded yet. Stats appear once past rounds are read from the sheet." }));
+    var max = [0, 0, 0, 0];
+    rows.forEach(function (e) { [e.c[0], e.c[1], e.c[2], e.total].forEach(function (v, i) { if (v > max[i]) max[i] = v; }); });
+    var cell = function (v, i) { return h("span", { class: "num" + (v > 0 && v === max[i] ? " top" : ""), text: String(v) }); };
+    var roundsCount = Object.keys(pairingsDocs.reduce(function (o, d) { if (d.start && Object.keys(d.start).length) o[d.round] = 1; return o; }, {})).length;
+    return h("section", { class: "panel" },
+      h("h2", { text: "Podium stats" }),
+      h("p", { class: "small muted", text: "Rounds spent at #1, #2 and #3, counted from the ladder at the start of each round, including the current one. Round 1 is not counted. Includes players no longer on the ladder. Highest totals in each column are highlighted. Tap a player to see which rounds." }),
+      h("div", { class: "stat-head" }, h("span", { text: "Player" }), h("span", { text: "#1" }), h("span", { text: "#2" }), h("span", { text: "#3" }), h("span", { text: "Total" })),
+      h("div", { class: "stat-list" }, rows.map(function (e) {
+        return h("details", { class: e.id === meId ? "mine" : "" },
+          h("summary", {}, h("div", { class: "stat-row" },
+            h("span", { class: "nm", text: e.name + (e.id === meId ? " (you)" : "") + (e.now ? "" : " (off ladder)") }),
+            cell(e.c[0], 0), cell(e.c[1], 1), cell(e.c[2], 2), cell(e.total, 3))),
+          h("div", { class: "stat-body" }, [1, 2, 3].map(function (k) {
+            return h("div", {}, h("b", { text: "#" + k + ": " }), e.r[k].length ? "round" + (e.r[k].length === 1 ? " " : "s ") + rangeText(e.r[k]) : h("span", { class: "muted", text: "none" }));
+          })));
+      })));
   }
 
   function roundDetails(doc) {
@@ -995,6 +1226,13 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       if (confirmKey === "savepair") kids.push(confirmBox("Replace the pairings already saved for round " + round() + "?", "Replace", savePairings));
       else btns.push(h("button", { disabled: busy, onclick: function () { if (saved) ask("savepair"); else savePairings(); } }, "Save pairings"));
       btns.push(h("button", { class: "ghost", onclick: function () { proposal = null; confirmKey = null; render(); } }, "Discard"));
+    }
+    if (saved || proposal) {
+      if (confirmKey === "clearpair") kids.push(confirmBox("Clear the pairings and results saved for round " + round() + "? Challenges and bye requests stay.", "Clear pairings", function () {
+        var r = round();
+        act(async function () { await db.doc("pairings/round-" + r).delete(); proposal = null; }, "Pairings cleared for round " + r + ".");
+      }, true));
+      else btns.push(h("button", { class: "ghost", disabled: busy, onclick: function () { if (saved) ask("clearpair"); else { proposal = null; confirmKey = null; render(); } } }, "Clear pairings"));
     }
     if (shown && shown.pairs.length && downloads) btns.push(h("button", { class: "ghost", onclick: function () { exportPairings(shown); } }, "Export CSV"));
     kids.push(h("div", { class: "row" }, btns));
@@ -1095,6 +1333,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
               return h("li", {}, h("div", { class: "vs" }, h("b", { text: nameOf(m.playerId) }), h("div", { class: "meta", text: total + (total === 1 ? " bye" : " byes") + " requested in all rounds" })), h("span", { class: "meta", text: when }));
             }))
           : h("p", { class: "muted", text: "Nobody has requested a bye this round." })));
+      put("inactive", inactiveSection(d));
       put("pairings", pairingsSection(d));
       put("past", pastRoundsSection());
       put("rules", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
@@ -1106,15 +1345,23 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         confirmKey === "round"
           ? confirmBox((function () {
               var sv = pairingsDocs.find(function (x) { return x.round === round(); });
-              if (!sv) return "Start round " + (round() + 1) + "? You haven't saved pairings for this round, so the ladder stays as it is. Bye requests and all challenges are cleared.";
+              if (!sv) return "Start round " + (round() + 1) + "? You haven't saved pairings for this round, so no results are applied. Bye requests and all challenges are cleared." + inactivityNote();
               var open = (sv.pairs || []).filter(function (g) { return !resultKind(g.result).kind; }).length;
-              return "Start round " + (round() + 1) + "? Results are applied to the ladder now." + (open ? " " + open + (open === 1 ? " game has" : " games have") + " no result and will not move anyone." : "") + " Bye requests and all challenges are cleared.";
+              return "Start round " + (round() + 1) + "? Results are applied to the ladder now." + (open ? " " + open + (open === 1 ? " game has" : " games have") + " no result and will not move anyone." : "") + " Bye requests and all challenges are cleared." + inactivityNote();
             })(), "Start round " + (round() + 1), startNextRound)
+          : confirmKey === "clearall"
+          ? confirmBox("Clear all " + challenges.length + (challenges.length === 1 ? " challenge" : " challenges") + " for round " + round() + "? Bye requests stay.", "Clear all challenges", function () {
+              act(async function () {
+                for (var i = 0; i < challenges.length; i++) await db.doc("challenges/" + challenges[i].id).delete();
+                confirmKey = null;
+              }, "All challenges for round " + round() + " are cleared.");
+            }, true)
           : h("div", { class: "row" },
               h("button", { class: "ghost", disabled: busy, onclick: function () { ask("round"); } }, "Start next round"),
+              h("button", { class: "ghost", disabled: busy || !challenges.length, onclick: function () { ask("clearall"); } }, "Clear all challenges"),
               downloads ? h("button", { class: "ghost", onclick: exportCsv }, "Export ladder as CSV") : null)));
     }
-    [["round", "Round " + round()], ["byes", "Bye requests, round " + round()], ["pairings", "Pairings, round " + round()],
+    [["round", "Round " + round()], ["byes", "Bye requests, round " + round()], ["inactive", "Inactive players"], ["pairings", "Pairings, round " + round()],
      ["past", "Past rounds"], ["sheet", "Google Sheet"], ["rules", "Rules"], ["organizers", "Organizers"]].forEach(function (x) {
       if (secs[x[0]]) parts.push(osec(x[0], x[1], secs[x[0]]));
     });
@@ -1124,6 +1371,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function render() {
     if (editing) { dirty = true; return; }
     dirty = false;
+    actCache = null;
     var d = derive();
     var kids = [masthead()];
     if (!dbMissing) kids.push(accountBar());
@@ -1141,9 +1389,18 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       kids.push(h("section", { class: "panel empty" }, h("h2", { text: "No ladder yet" }),
         h("p", { class: "muted", text: isAdmin ? "Sync from your Google Sheet below to start the ladder." : "The organizer hasn't loaded the ladder yet. Check back soon." })));
     } else {
-      kids.push(mePanel(d), ladderList(d));
+      var tabDefs = [["ladder", "Issue Challenges"], ["stats", "Podium stats"], ["jump", "Biggest jump"]];
+      if (isAdmin) tabDefs.push(["org", "Organizer tools"]);
+      if (!tabDefs.some(function (t) { return t[0] === tab; })) tab = "ladder";
+      kids.push(h("div", { class: "tabs", role: "tablist" }, tabDefs.map(function (t) {
+        return h("button", { role: "tab", "aria-selected": String(tab === t[0]), onclick: function () { tab = t[0]; render(); } }, t[1]);
+      })));
+      if (tab === "ladder") kids.push(mePanel(d), ladderList(d));
+      else if (tab === "stats") kids.push(statsView());
+      else if (tab === "jump") kids.push(jumpView());
+      else kids.push(organizer(d));
     }
-    if (isAdmin && !dbMissing && !loadError && ready.ladder) kids.push(organizer(d));
+    if (isAdmin && !dbMissing && !loadError && ready.ladder && !ladder) kids.push(organizer(d));
     appEl.replaceChildren.apply(appEl, kids);
   }
 
@@ -1264,6 +1521,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     listen("challenges", function (rows) { challenges = rows; });
     listen("moves", function (rows) { moves = rows; });
     listen("pairings", function (rows) { pairingsDocs = rows; });
+    listen("inactivity", function (rows) { inactivityDocs = rows; });
     auth.onAuthStateChanged(async function (u) {
       isAdmin = false; isOwner = false; admins = [];
       if (adminUnsub) { adminUnsub(); adminUnsub = null; }
