@@ -2,17 +2,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() {
-      return request.auth != null && request.auth.token.email_verified == true;
+    // Players are signed in anonymously by the page (no login screen).
+    // Organizers sign in with Google and must be listed in /admins.
+    function signedIn() { return request.auth != null; }
+    function hasEmail() {
+      return request.auth != null
+          && request.auth.token.get('email_verified', false) == true
+          && request.auth.token.get('email', '') != '';
     }
     function myEmail() { return request.auth.token.email.lower(); }
     function adminDoc() { return /databases/$(database)/documents/admins/$(myEmail()); }
-    function isAdmin() { return signedIn() && exists(adminDoc()); }
+    function isAdmin() { return hasEmail() && exists(adminDoc()); }
     function isOwner() { return isAdmin() && get(adminDoc()).data.role == 'owner'; }
 
     // Who may use the organizer tools. Only owners change this list.
     match /admins/{email} {
-      allow get: if signedIn() && email == myEmail();
+      allow get: if hasEmail() && email == myEmail();
       allow list: if isAdmin();
       allow write: if isOwner();
     }
@@ -23,21 +28,28 @@ service cloud.firestore {
     match /settings/{id}  { allow read: if true; allow write: if isAdmin(); }
     match /pairings/{id}  { allow read: if true; allow write: if isAdmin(); }
 
-    // Player entries. Any signed-in player can add their own; they can change or
-    // remove only the ones they created. Organizers can remove any (round reset).
+    // Player entries. Any visitor can add, change and remove them, with no login.
+    // The page names each entry's author by player, so this is trust-based: the rules
+    // only check the shape of the data, and organizers can clear everything.
     match /challenges/{id} {
       allow read: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow create: if signedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['challengerId', 'challengerName', 'challengerRank',
+                         'targetId', 'targetName', 'targetRank', 'round', 'status', 'pref', 'at', 'uid']);
       allow update: if signedIn()
-                    && (resource.data.uid == request.auth.uid || isAdmin())
-                    && request.resource.data.uid == resource.data.uid;
-      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+                    && request.resource.data.keys().hasOnly(['challengerId', 'challengerName', 'challengerRank',
+                         'targetId', 'targetName', 'targetRank', 'round', 'status', 'pref', 'at', 'uid']);
+      allow delete: if signedIn();
     }
     match /moves/{id} {
       allow read: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow create: if signedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.type in ['bye', 'revoke']
+                    && request.resource.data.keys().hasOnly(['type', 'playerId', 'round', 'at', 'uid']);
       allow update: if isAdmin();
-      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow delete: if signedIn();
     }
   }
 }
