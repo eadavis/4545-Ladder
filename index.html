@@ -115,6 +115,36 @@ button[disabled] { opacity: 0.45; cursor: not-allowed; }
 .stat-list .mine { background: var(--reach) !important; border-color: var(--accent) !important; }
 .stat-row .top { background: var(--bye-bg); color: var(--bye); font-weight: 700; border-radius: 4px; padding: 1px 0; text-align: center; }
 .stat-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 16px; }
+.namelink { color: inherit; font: inherit; font-weight: 600; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; cursor: pointer; }
+.namelink:hover { text-decoration-color: var(--accent); color: var(--accent); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.tile { background: var(--surface2); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.subsec { display: flex; flex-direction: column; gap: 10px; }
+.subsec:not(.plain) { border: 2px solid var(--line); border-radius: 10px; padding: 12px; background: var(--surface2); }
+.subsec:not(.plain) .tile { background: var(--surface); }
+.subsec h3 { margin: 0; }
+.tiles.three .tile { min-width: 0; padding-left: 9px; padding-right: 9px; }
+.tiles.three .tile .lbl { letter-spacing: 0; overflow-wrap: anywhere; }
+.tiles.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tile .val.sm { font-size: 18px; line-height: 1.35; display: flex; flex-direction: column; font-weight: 700; }
+.hdr-tools { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.hdr-tools .theme { margin-left: 0; }
+.viewtoggle { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.viewtoggle button { background: none; border: none; border-radius: 0; color: var(--muted); padding: 4px 9px; font-size: 14px; min-height: 0; }
+.viewtoggle button[aria-pressed="true"] { background: var(--surface2); color: var(--ink); font-weight: 600; }
+.tile .lbl { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.tile .val { font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.tile .sub { font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
+.pfield { display: flex; flex-direction: column; gap: 4px; }
+.pfield textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-height: 64px; resize: vertical; max-width: 100%; }
+.cardrow.expired { color: var(--muted); }
+.cardrow.expired b { font-weight: 500; }
+.rankchart { width: 100%; height: auto; display: block; }
+.rankchart .grid { stroke: var(--line); stroke-width: 1; }
+.rankchart .axis { fill: var(--muted); font-size: 17px; }
+.rankchart .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.rankchart .dot { fill: var(--accent); }
+.rankchart .best { fill: var(--bg); stroke: var(--accent); stroke-width: 2.5; }
 .chip.inactive { background: var(--surface2); color: var(--warn); }
 .chip.bye { background: var(--bye-bg); color: var(--bye); }
 .chip.you { background: var(--accent); color: var(--accent-ink); }
@@ -213,13 +243,14 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   var ladder = null, challenges = [], moves = [], pairingsDocs = [], attempts = [], attemptSeq = 0, manualPick = {};
   var tab = "ladder";
   var openSections = new Set();
+  var profileId = null, profileDraft = null, profileDocs = [];
   var cutoffText = null, nextCutoff = "", cutoffTimer = null;
   var inactivityDocs = [], actCache = null, cardDocs = [];
   var cardDraft = { playerId: "", type: "yellow", round: "", note: "" }, newPlayerName = "", removeId = "";
   var openRounds = new Set(), importProgress = "", manual = { round: "", text: "" }, manualOpen = false;
   var ready = { ladder: false };
   var slow = false, dbMissing = false, loadError = null;
-  var isAdmin = false, canWrite = false;
+  var isAdmin = false, realAdmin = false, realOwner = false, viewAs = "mod", canWrite = false;
   var meId = null, adminPick = null, lichessUser = null, ratings = {}, ratingsKey = "", ratingsBusy = false;
   var confirmKey = null;
   var busy = false;
@@ -283,7 +314,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   /* Who is "me": a moderator may pick anyone. Everyone else is whoever their Lichess login proves they are. */
   function syncMe() {
     var li = lichessUser && indexOf(lichessUser.id) >= 0 ? lichessUser.id : null;
-    meId = isAdmin ? (adminPick && indexOf(adminPick) >= 0 ? adminPick : li) : li;
+    meId = realAdmin ? (adminPick && indexOf(adminPick) >= 0 ? adminPick : li) : li;
   }
   /* Checks usernames against Lichess. Returns {lowercase name: official username}. Throws, naming the bad ones, if any
      name isn't a usable account, so callers can refuse to import anything. */
@@ -1146,29 +1177,38 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     }
     return h("div", { class: "theme", role: "group", "aria-label": "Colour theme" }, btn("light", SUN, "Light mode"), btn("dark", MOON, "Dark mode"));
   }
+  function setView(v) {
+    viewAs = v; isAdmin = realAdmin && v !== "player"; isOwner = realOwner && isAdmin; confirmKey = null; syncMe();
+    if (!isAdmin && tab === "org") tab = "ladder";
+    render();
+  }
+  function viewToggle() {
+    if (!realAdmin) return null;
+    function btn(v, label) { return h("button", { type: "button", "aria-pressed": String(viewAs === v), title: "View the site as " + (v === "mod" ? "a moderator" : "a player"), onclick: function () { setView(v); } }, label); }
+    return h("div", { class: "viewtoggle", role: "group", "aria-label": "View the site as" }, btn("mod", "Moderator"), btn("player", "Player"));
+  }
   function masthead() {
     return h("header", { class: "masthead" },
       h("div", { class: "board-strip", "aria-hidden": "true" }),
       h("div", { class: "title-row" },
         h("h1", { text: "4545 Ladder" }),
         ladder ? h("span", { class: "round-pill num", text: "Round " + round() }) : null,
-        themeToggle()),
+        h("div", { class: "hdr-tools" }, viewToggle(), themeToggle())),
       h("p", { class: "small" }, "Ladder rules can be found ", h("a", { href: "https://docs.google.com/document/d/1991lFK5vCeomHYMPDub8e4a73sJQw5sCp8BLpcbJnxU/edit?usp=sharing", target: "_blank", rel: "noopener" }, "here"), "."),
       null);
   }
 
-  function mePanel(d) {
+  function whoBar() {
     var ps = players();
-    var mi = indexOf(meId), me = mi >= 0 ? ps[mi] : null;
     var kids = [];
-    if (isAdmin) {
+    if (realAdmin) {
       var sel = h("select", { id: "me-select", onchange: function (e) {
         adminPick = e.target.value || null; confirmKey = null;
         try { if (adminPick) localStorage.setItem("chess-ladder-me", adminPick); else localStorage.removeItem("chess-ladder-me"); } catch (x) {}
         syncMe(); render();
       } }, h("option", { value: "" }, "Choose a player"),
         ps.map(function (p, i) { return h("option", { value: p.id, selected: p.id === meId }, "#" + (i + 1) + "  " + p.name); }));
-      kids.push(h("label", { class: "field", for: "me-select" }, "Playing as (moderators can choose anyone)", sel));
+      kids.push(h("label", { class: "field", for: "me-select" }, (viewAs === "player" ? "Previewing as (pick any player)" : "Playing as (moderators can choose anyone)"), sel));
     }
     if (lichessUser) {
       kids.push(h("div", { class: "row", style: "justify-content:space-between" },
@@ -1177,12 +1217,18 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       if (indexOf(lichessUser.id) < 0) kids.push(h("p", { class: "small warn-text", text: lichessUser.username + " isn't on the ladder. If that's a different account from the one you play on, log out and log in with the right one." }));
     } else {
       kids.push(h("div", { class: "row", style: "justify-content:space-between" },
-        h("p", { class: "small", style: "margin:0;flex:1 1 220px", text: isAdmin ? "Moderators can also log in with Lichess." : "Log in with your Lichess account to issue challenges. Lichess confirms your username, and this page asks for no other permissions." }),
+        h("p", { class: "small", style: "margin:0;flex:1 1 220px", text: realAdmin ? "Moderators can also log in with Lichess." : "Log in with your Lichess account to issue challenges. Lichess confirms your username, and this page asks for no other permissions." }),
         h("button", { onclick: lichessLogin }, "Log in with Lichess")));
     }
     if (!canWrite) kids.push(h("p", { class: "small warn-text", text: "Connecting. If this doesn't clear, check your connection." }));
+    return h("section", { class: "panel whobar", "aria-label": "Who you are" }, kids);
+  }
+  function mePanel(d) {
+    var ps = players();
+    var mi = indexOf(meId), me = mi >= 0 ? ps[mi] : null;
+    var kids = [];
     if (me) kids.push(meCard(me, mi, d));
-    return h("section", { class: "panel", "aria-label": "Your ladder spot" }, kids);
+    return kids.length ? h("section", { class: "panel", "aria-label": "Your ladder spot" }, kids) : null;
   }
 
   function meCard(me, mi, d) {
@@ -1278,7 +1324,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       else if (isAdmin && ladder.source !== "sheet" && !earnedImmune().set) act.push(h("button", { class: "link", disabled: busy, onclick: function () { toggleImmunity(p); }, title: "Moderator: turn immunity on or off" }, p.immune ? "Remove immunity" : "Grant immunity"));
       return h("li", { class: (inReach ? "reach " : "") + (isMe ? "me" : "") },
         h("div", { class: "rk num" }, "#" + (i + 1), delta),
-        h("div", { class: "nm" }, h("span", { text: p.name + ratingTag(p) }), chips.length ? h("div", { class: "chips" }, chips) : null),
+        h("div", { class: "nm" }, profLink(p.id, p.name + ratingTag(p)), chips.length ? h("div", { class: "chips" }, chips) : null),
         h("div", { class: "act" }, act));
     });
     return h("section", { "aria-label": "Ladder" },
@@ -1286,7 +1332,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         h("h2", {}, "The ladder", h("span", { class: "muted small num", text: ps.length + " players" })),
         cutoffNotice(),
         h("p", { class: "rules", text: "Challenge anyone up to " + maxJump() + " spots above you, immune or not. New players can challenge anyone above them. A player who was challenged last round and has someone above they can legally challenge is immune. Immunity is checked when pairings are run, so a player can still revoke it first. Request a bye if you need to sit out a round." }),
-        me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : h("p", { class: "small muted", text: "Log in with Lichess above to see who you can challenge." }),
+        me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : h("p", { class: "small muted", text: "Log in with Lichess above the tabs to see who you can challenge." }),
         h("ol", { class: "ladder", style: "list-style:none" }, items)));
   }
 
@@ -1460,7 +1506,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       h("p", { class: "small muted", text: "Each player's largest climb between the ladders at the start of two consecutive rounds. Round 1 is not counted. The biggest jump overall is highlighted." }),
       h("div", { class: "stat-list" }, rows.map(function (e) {
         return h("div", { class: "stat-row jump" + (e.id === meId ? " mine" : ""), style: "background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:9px 12px;grid-template-columns:minmax(0,1fr) auto" },
-          h("span", { class: "nm", text: e.name + (e.id === meId ? " (you)" : "") + (e.now ? "" : " (off ladder)") }),
+          h("span", { class: "nm" }, e.now ? profLink(e.id, e.name) : e.name, (e.id === meId ? " (you)" : "") + (e.now ? "" : " (off ladder)")),
           h("span", { class: "num" + (e.gain === top ? " top" : ""), text: e.gain + (e.gain === 1 ? " rank" : " ranks") + ", Round " + e.R + "-" + (e.R + 1) + " (#" + e.from + " to #" + e.to + ")" }));
       })));
   }
@@ -1478,7 +1524,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       h("div", { class: "stat-list" }, rows.map(function (e) {
         return h("details", { class: e.id === meId ? "mine" : "" },
           h("summary", {}, h("div", { class: "stat-row" },
-            h("span", { class: "nm", text: e.name + (e.id === meId ? " (you)" : "") + (e.now ? "" : " (off ladder)") }),
+            h("span", { class: "nm" }, e.now ? profLink(e.id, e.name) : e.name, (e.id === meId ? " (you)" : "") + (e.now ? "" : " (off ladder)")),
             cell(e.c[0], 0), cell(e.c[1], 1), cell(e.c[2], 2), cell(e.total, 3))),
           h("div", { class: "stat-body" }, [1, 2, 3].map(function (k) {
             return h("div", {}, h("b", { text: "#" + k + ": " }), e.r[k].length ? "round" + (e.r[k].length === 1 ? " " : "s ") + rangeText(e.r[k]) : h("span", { class: "muted", text: "none" }));
@@ -1564,6 +1610,215 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
               h("option", { value: "" }, "Choose a player"),
               players().map(function (p, i) { return h("option", { value: p.id, selected: p.id === removeId }, "#" + (i + 1) + "  " + p.name); }))),
             h("button", { class: "danger", disabled: busy || !rp, onclick: function () { ask("removeplayer"); } }, "Remove from ladder")));
+  }
+
+  /* ---------- player profiles ---------- */
+  function profHash() { var m = /^#profile-([a-z0-9-]+)$/.exec(location.hash || ""); return m ? m[1] : null; }
+  function openProfile(id) {
+    profileId = id; profileDraft = null; confirmKey = null;
+    try { location.hash = "profile-" + id; } catch (e) {}
+    render();
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+  function closeProfile() {
+    profileId = null; profileDraft = null;
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { try { location.hash = ""; } catch (x) {} }
+    render();
+  }
+  window.addEventListener("hashchange", function () { var id = profHash(); if (id !== profileId) { profileId = id; profileDraft = null; render(); } });
+  /* A player's name, as a link to their profile when they are on the ladder. */
+  function profLink(id, label) {
+    if (indexOf(id) < 0) return h("span", { text: label });
+    return h("a", { class: "namelink", href: "#profile-" + id, title: "View profile", onclick: function (e) { e.preventDefault(); e.stopPropagation(); openProfile(id); } }, label);
+  }
+  function profileOf(id) { return profileDocs.find(function (x) { return x.id === id; }) || null; }
+  function canEditProfile(id) { return !!id && (isAdmin || meId === id); }
+  function startsByRound() {
+    var starts = {};
+    pairingsDocs.forEach(function (doc) { if (doc.start && Object.keys(doc.start).length) starts[doc.round] = doc.start; });
+    if (!starts[round()]) starts[round()] = currentStart();
+    return starts;
+  }
+  function gamesOf(id) {
+    var out = [];
+    pairingsDocs.slice().sort(function (a, b) { return a.round - b.round; }).forEach(function (doc) {
+      (doc.pairs || []).forEach(function (g) {
+        if (g.a !== id && g.b !== id) return;
+        var white = g.b === id, k = resultKind(g.result), res = null;
+        if (k.kind === "win") res = white ? "W" : "L";
+        else if (k.kind === "loss") res = white ? "L" : "W";
+        else if (k.kind === "draw") res = "D";
+        else if (k.kind === "none") res = "N";
+        out.push({ round: doc.round, white: white, opp: white ? g.a : g.b, oppName: white ? g.aName : g.bName, res: res, forfeit: k.forfeit });
+      });
+    });
+    return out;
+  }
+  function pct(n, d) { return d ? Math.round(100 * n / d) + "%" : "n/a"; }
+  function fmtJoined(iso) {
+    if (!iso) return null;
+    var t = Date.parse(iso + "T12:00:00Z");
+    return isFinite(t) ? new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }) : null;
+  }
+  function tile(label, value, sub) {
+    return h("div", { class: "tile" }, h("span", { class: "lbl", text: label }), h("span", { class: "val num" }, value), sub ? h("span", { class: "sub" }, sub) : null);
+  }
+  function rankChart(points, id) {
+    if (points.length < 2) return h("p", { class: "muted", text: points.length ? "Rank history appears once there are two rounds of data." : "No rank history yet." });
+    var rlo = Math.min.apply(null, points.map(function (q) { return q.rank; })), rhi = Math.max.apply(null, points.map(function (q) { return q.rank; }));
+    var lo = rlo <= 5 ? 1 : Math.floor(rlo / 5) * 5, hi = Math.max(lo + 5, Math.ceil(rhi / 5) * 5);
+    var W = 600, L = 58, R = 20, T = 20, B = 36, H = Math.min(520, Math.max(240, T + B + (hi - lo) / 5 * 34));
+    var x0 = points[0].round, x1 = points[points.length - 1].round;
+    var X = function (r) { return L + (x1 === x0 ? 0 : (r - x0) / (x1 - x0)) * (W - L - R); };
+    var Y = function (k) { return T + (k - lo) / (hi - lo) * (H - T - B); };
+    var NS = "http://www.w3.org/2000/svg";
+    var mkn = function (tag, at, txt) { var e = document.createElementNS(NS, tag); Object.keys(at || {}).forEach(function (k) { e.setAttribute(k, at[k]); }); if (txt != null) e.textContent = txt; return e; };
+    var svg = mkn("svg", { viewBox: "0 0 " + W + " " + H, class: "rankchart", role: "img",
+      "aria-label": "Rank at the start of each round, from round " + x0 + " to round " + x1 + ". Best was #" + rlo + ", lowest was #" + rhi + "." });
+    var ticks = []; if (lo === 1) ticks.push(1); for (var tk = Math.max(5, Math.ceil(lo / 5) * 5); tk <= hi; tk += 5) ticks.push(tk);
+    ticks.forEach(function (k) { svg.appendChild(mkn("line", { x1: L, x2: W - R, y1: Y(k), y2: Y(k), class: "grid" })); svg.appendChild(mkn("text", { x: L - 8, y: Y(k) + 4, "text-anchor": "end", class: "axis" }, "#" + k)); });
+    var step = Math.max(1, Math.ceil((x1 - x0 + 1) / 8));
+    points.forEach(function (q) { if ((q.round - x0) % step === 0 || q.round === x1) svg.appendChild(mkn("text", { x: X(q.round), y: H - 10, "text-anchor": "middle", class: "axis" }, String(q.round))); });
+    svg.appendChild(mkn("text", { x: W - R, y: H - 8, "text-anchor": "end", class: "axis", opacity: "0" }, ""));
+    svg.appendChild(mkn("polyline", { points: points.map(function (q) { return X(q.round) + "," + Y(q.rank); }).join(" "), class: "line" }));
+    points.forEach(function (q) {
+      var c = mkn("circle", { cx: X(q.round), cy: Y(q.rank), r: q.rank === rlo ? 5 : 3, class: q.rank === rlo ? "best" : "dot" });
+      c.appendChild(mkn("title", {}, "Round " + q.round + ": #" + q.rank));
+      svg.appendChild(c);
+    });
+    return svg;
+  }
+  function saveProfile() {
+    var dr = profileDraft, id = profileId;
+    act(async function () {
+      if (!canEditProfile(id)) throw new Error("Only this player or a moderator can edit this profile.");
+      var cur = profileOf(id) || {};
+      var next = Object.assign({}, cur); delete next.id;
+      next.availability = String(dr.availability || "").trim().slice(0, 200);
+      next.timeControl = String(dr.timeControl || "").trim().slice(0, 200);
+      next.updatedAt = Date.now();
+      await db.doc("profiles/" + id).set(next);
+      profileDraft = null;
+    }, "Profile saved.");
+  }
+  function profileView(d) {
+    var id = profileId, ps = players(), i = indexOf(id), p = ps[i], prof = profileOf(id) || {};
+    var games = gamesOf(id), dec = games.filter(function (g) { return g.res === "W" || g.res === "D" || g.res === "L"; });
+    var W = dec.filter(function (g) { return g.res === "W"; }).length, Dr = dec.filter(function (g) { return g.res === "D"; }).length, Lo = dec.filter(function (g) { return g.res === "L"; }).length;
+    var rec = function (list) { return { w: list.filter(function (g) { return g.res === "W"; }).length, d: list.filter(function (g) { return g.res === "D"; }).length, l: list.filter(function (g) { return g.res === "L"; }).length }; };
+    var asW = rec(dec.filter(function (g) { return g.white; })), asB = rec(dec.filter(function (g) { return !g.white; }));
+    var fW = dec.filter(function (g) { return g.forfeit && g.res === "W"; }).length, fL = dec.filter(function (g) { return g.forfeit && g.res === "L"; }).length;
+    var streak = 0, best = 0;
+    dec.forEach(function (g) { if (g.res === "W") { streak++; if (streak > best) best = streak; } else streak = 0; });
+    var tally = function (list) {
+      var m = {}; list.forEach(function (g) { var o = m[g.opp] || (m[g.opp] = { id: g.opp, name: g.oppName, n: 0, last: 0 }); o.n++; o.last = g.round; });
+      return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return b.n - a.n || b.last - a.last; })[0] || null;
+    };
+    var mostPlayed = tally(dec), mostBeaten = tally(dec.filter(function (g) { return g.res === "W"; }));
+    var starts = startsByRound();
+    var points = Object.keys(starts).map(Number).sort(function (a, b) { return a - b; }).filter(function (R) { return starts[R][id] != null; }).map(function (R) { return { round: R, rank: starts[R][id] }; });
+    var peak = points.length ? Math.min.apply(null, points.map(function (q) { return q.rank; })) : i + 1;
+    var peakRounds = points.filter(function (q) { return q.rank === peak; }).map(function (q) { return q.round; });
+    var pod = podiumStats().find(function (e) { return e.id === id; });
+    var jump = jumpStats().find(function (e) { return e.id === id; });
+    var made = games.filter(function (g) { return g.white; }).length, got = games.length - made;
+    var cards = cardDocs.filter(function (k) { return k.playerId === id; }).sort(function (a, b) { return (b.round || 0) - (a.round || 0); });
+    var joined = fmtJoined(prof.joined);
+    var first = points.length ? points[0].round : null;
+    var canEdit = canEditProfile(id);
+    var dr = profileDraft || (profileDraft = { availability: prof.availability || "", timeControl: prof.timeControl || "" });
+
+    var field = function (key, label, id2) {
+      if (!canEdit) return h("div", { class: "pfield" }, h("span", { class: "lbl small muted", text: label }), prof[key] ? h("span", { text: prof[key] }) : h("span", { class: "muted", text: "Not set" }));
+      return h("div", { class: "pfield" },
+        h("label", { class: "lbl small muted", for: id2 }, label),
+        h("textarea", { id: id2, maxlength: "200", oninput: function (e) { dr[key] = e.target.value; var c = document.getElementById(id2 + "-n"); if (c) c.textContent = e.target.value.length + " / 200"; } }, dr[key] || ""),
+        h("span", { class: "small muted num", id: id2 + "-n", text: (dr[key] || "").length + " / 200" }));
+    };
+    var kids = [
+      h("div", { class: "row", style: "justify-content:space-between" },
+        h("button", { class: "ghost", onclick: closeProfile }, "Back"),
+        h("a", { href: "https://lichess.org/@/" + encodeURIComponent(p.name), target: "_blank", rel: "noopener" }, "View on Lichess")),
+      h("section", { class: "panel" },
+        h("h2", {}, p.name, h("span", { class: "muted small num", text: "#" + (i + 1) + " on the ladder" })),
+        h("div", { class: "tiles" },
+          tile("On the ladder since", joined || (first ? "Round " + first : "Unknown"), joined ? (first ? "First seen in round " + first : null) : (first ? "Start date not set" : null)),
+          tile("Rounds played", String(dec.length), games.length - dec.length ? (games.length - dec.length) + " without a result" : null)),
+        field("availability", "Availability", "pf-av"),
+        field("timeControl", "Preferred time control", "pf-tc"),
+        canEdit ? h("div", { class: "row" }, h("button", { disabled: busy, onclick: saveProfile }, "Save")) : null),
+      h("section", { class: "panel" },
+        h("h2", { text: "Record" }),
+        dec.length ? h("div", { style: "display:flex;flex-direction:column;gap:22px" },
+          h("div", { class: "subsec" },
+            h("h3", { text: "Wins, Draws, Losses" }),
+            h("div", { class: "tiles three" },
+              tile("Total", W + "-" + Dr + "-" + Lo, "Win rate " + pct(W, dec.length)),
+              tile("As white (challenger)", asW.w + "-" + asW.d + "-" + asW.l, "Win rate " + pct(asW.w, asW.w + asW.d + asW.l)),
+              tile("As black (challenged)", asB.w + "-" + asB.d + "-" + asB.l, "Win rate " + pct(asB.w, asB.w + asB.d + asB.l)))),
+          h("div", { class: "subsec plain" },
+            h("div", { class: "tiles three" },
+            tile("Longest win streak", best + (best === 1 ? " game" : " games"), null),
+            tile("Byes taken", String(d.byeCount.get(id) || 0), null),
+            mostPlayed ? tile("Most played", profLink(mostPlayed.id, mostPlayed.name), mostPlayed.n + (mostPlayed.n === 1 ? " game" : " games")) : null,
+            mostBeaten ? tile("Most beaten", profLink(mostBeaten.id, mostBeaten.name), mostBeaten.n + (mostBeaten.n === 1 ? " win" : " wins")) : null)))
+          : h("p", { class: "muted", text: "No finished games yet." })),
+      h("section", { class: "panel" },
+        h("h2", { text: "Ladder Rankings" }),
+        h("div", { class: "tiles" },
+          tile("Current rank", "#" + (i + 1), null),
+          tile("Highest rank", "#" + peak, peakRounds.length ? "Round " + (peakRounds.length > 3 ? peakRounds[0] + " and " + (peakRounds.length - 1) + " more" : peakRounds.join(", ")) : null),
+          (function () {
+            var c = pod ? pod.c : [0, 0, 0];
+            var lines = c.map(function (n, k) { return h("span", { text: n + (n === 1 ? " Round" : " Rounds") + " at #" + (k + 1) }); });
+            return h("div", { class: "tile" }, h("span", { class: "lbl", text: "Podium rounds" }), h("span", { class: "val sm num" }, lines),
+              h("span", { class: "sub", text: (pod ? pod.total : 0) + (pod && pod.total === 1 ? " round" : " rounds") + " on the podium. Round 1 not counted." }));
+          })(),
+          tile("Biggest jump", jump ? jump.gain + (jump.gain === 1 ? " rank" : " ranks") : "None yet", jump ? "Round " + jump.R + "-" + (jump.R + 1) + " (#" + jump.from + " to #" + jump.to + ")" : null)),
+        rankChart(points, id)),
+      h("section", { class: "panel" },
+        h("h2", { text: "Cards" }),
+        cards.length ? h("ul", { class: "feed" }, cards.map(function (k) {
+          var yellow = k.type !== "red", off = (k.round || 0) + YELLOW_ROUNDS + 1, expired = yellow && round() >= off;
+          return h("li", { class: "cardrow" + (expired ? " expired" : "") },
+            h("div", { class: "vs" }, h("b", { text: yellow ? "Yellow card" : "Red card" }),
+              h("div", { class: "meta", text: "Earned in round " + k.round + (yellow ? (expired ? ". Fell off in round " + off + "." : ". Falls off in round " + off + ".") : ". Does not expire.") + (k.note ? " " + k.note : "") })),
+            expired ? h("span", { class: "meta", text: "Expired" }) : null);
+        })) : h("p", { class: "muted", text: "No cards." }),
+        h("p", { class: "small muted", text: "Cards are recorded by moderators." }))
+    ];
+    return h("div", { style: "display:flex;flex-direction:column;gap:14px" }, kids);
+  }
+  function importPlayerInfo() {
+    act(async function () {
+      if (!mcp) throw new Error("Google Sheets can't be reached from this view. Open the page in Claude while signed in.");
+      var res = await mcp.callTool(SHEET.server, "get_spreadsheet", { spreadsheetId: SHEET.id, fields: ["sheets.properties.title"] }, { cache: false });
+      var title = tabTitles(res).find(function (t) { return t.trim().toLowerCase() === "player info"; });
+      if (!title) throw new Error("No tab named Player Info was found.");
+      var vr = await mcp.callTool(SHEET.server, "get_values", { spreadsheetId: SHEET.id, range: "'" + title.replace(/'/g, "''") + "'!A1:H400" }, { cache: false });
+      var rows = valuesFrom(vr);
+      var head = (rows[0] || []).map(function (x) { return cellText(x).toLowerCase(); });
+      var col = function (name) { return head.findIndex(function (x) { return x.indexOf(name) === 0; }); };
+      var cJoin = col("join"), cUser = col("username"), cAv = col("availability"), cTc = col("preferred");
+      if (cUser < 0) throw new Error("The Player Info tab needs a Username column.");
+      var done = 0, skipped = 0;
+      for (var r = 1; r < rows.length; r++) {
+        var row = rows[r], nm = cellText(row[cUser]);
+        if (!nm) continue;
+        var id = slugName(nm);
+        if (indexOf(id) < 0) { skipped++; continue; }
+        var cur = profileOf(id) || {}, next = Object.assign({}, cur); delete next.id;
+        var jm = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(cellText(row[cJoin]));
+        if (jm) next.joined = jm[3] + "-" + ("0" + jm[2]).slice(-2) + "-" + ("0" + jm[1]).slice(-2);
+        var av = cellText(row[cAv]).slice(0, 200), tc = cellText(row[cTc]).slice(0, 200);
+        if (av && !next.availability) next.availability = av;
+        if (tc && !next.timeControl) next.timeControl = tc;
+        next.updatedAt = Date.now();
+        await db.doc("profiles/" + id).set(next);
+        done++;
+      }
+      toast("Imported info for " + done + " players" + (skipped ? ". " + skipped + " rows weren't on the ladder." : "."));
+    });
   }
 
   function roundDetails(doc) {
@@ -1782,6 +2037,10 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     var synced = ladder && ladder.lastSync ? new Date(ladder.lastSync).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null;
     var sd0 = sheetDraft || { url: SHEET.id ? "https://docs.google.com/spreadsheets/d/" + SHEET.id + "/edit" : "", tab: (sheetCfg && sheetCfg.ladderTab) || "LADDER" };
     put("sheet", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
+      h("h3", { text: "Player Info" }),
+      h("p", { class: "small muted", text: "Fills each player's start date, availability and preferred time control from the Player Info tab. Availability and time control are only filled where the player's profile is still empty." }),
+      h("div", { class: "row" }, h("button", { class: "ghost", disabled: busy || !mcp, onclick: importPlayerInfo }, "Import Player Info"))));
+    put("sheet", h("div", { style: "display:flex;flex-direction:column;gap:10px" },
       h("p", { class: "small muted", text: "Share the sheet as \"Anyone with the link can view\", paste its link, and name the tab that holds the ladder (columns Ranking, Username, Immunity). Past rounds are read from tabs named Round 1, Round 2 and so on." }),
       h("label", { class: "field", for: "sheet-url" }, "Sheet link", h("input", { id: "sheet-url", type: "url", style: "width:100%", value: sd0.url, placeholder: "https://docs.google.com/spreadsheets/d/...", oninput: function (e) { sheetDraft = Object.assign({}, sd0, { url: e.target.value.trim() }); sd0 = sheetDraft; } })),
       h("label", { class: "field", for: "sheet-tab" }, "Ladder tab name", h("input", { id: "sheet-tab", type: "text", style: "width:100%", value: sd0.tab, oninput: function (e) { sheetDraft = Object.assign({}, sd0, { tab: e.target.value }); sd0 = sheetDraft; } })),
@@ -1879,16 +2138,21 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       kids.push(h("section", { class: "panel empty" }, h("h2", { text: "No ladder yet" }),
         h("p", { class: "muted", text: isAdmin ? "Sync from your Google Sheet below to start the ladder." : "The moderator hasn't loaded the ladder yet. Check back soon." })));
     } else {
-      var tabDefs = [["ladder", "Issue Challenges"], ["stats", "Podium Stats"], ["jump", "Biggest Jump"]];
+      if (profileId && indexOf(profileId) >= 0) kids.push(profileView(d));
+      else {
+      var tabDefs = [["ladder", "Issue Challenges"], ["me", "My Profile"], ["stats", "Podium Stats"], ["jump", "Biggest Jump"]];
       if (isAdmin) tabDefs.push(["org", "Moderator Tools"]);
       if (!tabDefs.some(function (t) { return t[0] === tab; })) tab = "ladder";
+      kids.push(whoBar());
       kids.push(h("div", { class: "tabs", role: "tablist" }, tabDefs.map(function (t) {
-        return h("button", { role: "tab", "aria-selected": String(tab === t[0]), onclick: function () { tab = t[0]; render(); } }, t[1]);
+        return h("button", { role: "tab", "aria-selected": String(tab === t[0]), onclick: function () { if (t[0] === "me" && indexOf(meId) >= 0) { tab = "ladder"; openProfile(meId); return; } tab = t[0]; render(); } }, t[1]);
       })));
-      if (tab === "ladder") kids.push(mePanel(d), ladderList(d));
+      if (tab === "me") kids.push(h("section", { class: "panel empty" }, h("h2", { text: "My Profile" }), h("p", { class: "muted", text: "Choose your name in Playing as, above, then select My Profile again." })));
+      else if (tab === "ladder") kids.push(mePanel(d), ladderList(d));
       else if (tab === "stats") kids.push(statsView());
       else if (tab === "jump") kids.push(jumpView());
       else kids.push(organizer(d));
+      }
     }
     if (isAdmin && !dbMissing && !loadError && ready.ladder && !ladder) kids.push(organizer(d));
     appEl.replaceChildren.apply(appEl, kids);
@@ -1909,7 +2173,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
   function accountBar() {
     if (!auth) return h("div", { class: "acct" });
     if (me && !me.isAnonymous) {
-      return h("div", { class: "acct" }, h("span", { class: "muted", text: "Signed in as " + (me.displayName || me.email) + (isAdmin ? (isOwner ? " (owner)" : " (moderator)") : " (not a moderator)") }),
+      return h("div", { class: "acct" }, h("span", { class: "muted", text: "Signed in as " + (me.displayName || me.email) + (realAdmin ? (realOwner ? " (owner)" : " (moderator)") : " (not a moderator)") }),
         h("button", { class: "link", onclick: function () { auth.signOut(); } }, "Sign out"));
     }
     return h("div", { class: "acct" }, h("button", { class: "link", onclick: signIn }, "Moderator sign-in"));
@@ -1988,6 +2252,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     }, function (e) { loadError = e; render(); });
   }
   var sheetCfg = null;
+  profileId = profHash();
   async function boot() {
     await finishLichessLogin();
     render();
@@ -2014,8 +2279,9 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     listen("pairings", function (rows) { pairingsDocs = rows; });
     listen("inactivity", function (rows) { inactivityDocs = rows; });
     listen("cards", function (rows) { cardDocs = rows; });
+    listen("profiles", function (rows) { profileDocs = rows; });
     auth.onAuthStateChanged(async function (u) {
-      isAdmin = false; isOwner = false; admins = [];
+      isAdmin = false; isOwner = false; realAdmin = false; realOwner = false; admins = [];
       if (adminUnsub) { adminUnsub(); adminUnsub = null; }
       if (!u) {
         me = null; canWrite = false; render();
@@ -2028,10 +2294,10 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
       if (!u.isAnonymous && u.email) {
         try {
           var snap = await db.doc("admins/" + u.email.toLowerCase()).get();
-          if (snap.exists) { isAdmin = true; isOwner = snap.data().role === "owner"; }
+          if (snap.exists) { realAdmin = true; realOwner = snap.data().role === "owner"; isAdmin = viewAs !== "player"; isOwner = realOwner && isAdmin; }
         } catch (e) {}
       }
-      if (isAdmin) adminUnsub = db.collection("admins").onSnapshot(function (sn) { admins = sn.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); render(); }, function () {});
+      if (realAdmin) adminUnsub = db.collection("admins").onSnapshot(function (sn) { admins = sn.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); render(); }, function () {});
       render();
     });
   }

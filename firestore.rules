@@ -29,8 +29,8 @@ service cloud.firestore {
     match /pairings/{id}  { allow read: if true; allow write: if isAdmin(); }
     // Inactivity strikes and removals, written when an moderator starts the next round.
     match /inactivity/{id} { allow read: if true; allow write: if isAdmin(); }
-    // Yellow and red cards, entered by hand by moderators.
-    match /cards/{id} { allow read, write: if isAdmin(); }
+    // Yellow and red cards: everyone can read (the page loads them for all visitors), only moderators write.
+    match /cards/{id} { allow read: if true; allow write: if isAdmin(); }
 
     // Player entries. Any visitor can add, change and remove them, with no login.
     // The page names each entry's author by player, so this is trust-based: the rules
@@ -45,6 +45,18 @@ service cloud.firestore {
                     && request.resource.data.keys().hasOnly(['challengerId', 'challengerName', 'challengerRank',
                          'targetId', 'targetName', 'targetRank', 'round', 'status', 'pref', 'at', 'uid']);
       allow delete: if signedIn();
+    }
+    // Player profiles (availability, preferred time control, start date). Document id = player id.
+    // Everyone can read. Any signed-in visitor can write, limited to the fields below and 200 characters
+    // per text field; like challenges this is trust-based, and the page only offers editing to the
+    // player (verified by Lichess login) or a moderator.
+    match /profiles/{id} {
+      allow read: if true;
+      allow create, update: if signedIn()
+                    && request.resource.data.keys().hasOnly(['availability', 'timeControl', 'joined', 'updatedAt'])
+                    && (!('availability' in request.resource.data) || request.resource.data.availability.size() <= 200)
+                    && (!('timeControl' in request.resource.data) || request.resource.data.timeControl.size() <= 200);
+      allow delete: if isAdmin();
     }
     match /moves/{id} {
       allow read: if true;

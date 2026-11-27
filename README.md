@@ -77,7 +77,7 @@ Keep these in mind:
 
 ## Updating an existing site
 
-Replace `index.html` and republish `firestore.rules` (Firestore > Rules). The rules now include an `inactivity` collection (strikes and removals) and a `cards` collection (yellow and red cards). `config.js` is unchanged, so keep your own.
+Replace `index.html` and republish `firestore.rules` (Firestore > Rules). The rules now let everyone read `cards` (moderators still write them) and add a `profiles` collection (player availability and time control). `config.js` is unchanged, so keep your own.
 
 ## Lichess login and ratings
 
