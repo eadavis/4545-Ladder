@@ -1329,10 +1329,10 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
     });
     return h("section", { "aria-label": "Ladder" },
       h("div", { class: "panel", style: "padding:0;border:none;background:transparent;gap:10px" },
-        h("h2", {}, "The ladder", h("span", { class: "muted small num", text: ps.length + " players" })),
-        cutoffNotice(),
         h("p", { class: "rules", text: "Challenge anyone up to " + maxJump() + " spots above you, immune or not. New players can challenge anyone above them. A player who was challenged last round and has someone above they can legally challenge is immune. Immunity is checked when pairings are run, so a player can still revoke it first. Request a bye if you need to sit out a round." }),
-        me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : h("p", { class: "small muted", text: "Log in with Lichess above the tabs to see who you can challenge." }),
+        h("h2", {}, "The Ladder", h("span", { class: "muted small num", text: ps.length + " players" })),
+        cutoffNotice(),
+        me ? h("p", { class: "small muted", text: "Shaded rows are players you can challenge. Rank your choices: 1st choice is who you most want to play. Pairing tries your 1st choice first, then works down." }) : null,
         h("ol", { class: "ladder", style: "list-style:none" }, items)));
   }
 
@@ -2148,7 +2148,12 @@ details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
         return h("button", { role: "tab", "aria-selected": String(tab === t[0]), onclick: function () { if (t[0] === "me" && indexOf(meId) >= 0) { tab = "ladder"; openProfile(meId); return; } tab = t[0]; render(); } }, t[1]);
       })));
       if (tab === "me") kids.push(h("section", { class: "panel empty" }, h("h2", { text: "My Profile" }), h("p", { class: "muted", text: "Choose your name in Playing as, above, then select My Profile again." })));
-      else if (tab === "ladder") kids.push(mePanel(d), ladderList(d));
+      else if (tab === "ladder") {
+        var mp = mePanel(d);
+        if (mp) kids.push(mp);
+        else if (indexOf(meId) < 0) kids.push(h("p", { class: "small muted", text: "Log in with Lichess above the tabs to see who you can challenge." }));
+        kids.push(ladderList(d));
+      }
       else if (tab === "stats") kids.push(statsView());
       else if (tab === "jump") kids.push(jumpView());
       else kids.push(organizer(d));
